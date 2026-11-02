@@ -142,8 +142,8 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
     const next = new Map(itemsRef.current)
     await place(target, card, next)
     setItems(next)
-    const after = toPos(nextEmpty(toIndex(target) + 1, next))
-    setSearchTarget(after)
+    setSearchTarget(null)
+    setTimeout(() => goTo(target.page), 50)
   }
 
   // --- Acciones sobre un casillero ------------------------------------------
@@ -358,10 +358,7 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
         <SearchSheet
           targetLabel={`Va a la página ${searchTarget.page + 1}, casillero ${searchTarget.slot + 1}`}
           onAdd={addCard}
-          onClose={() => {
-            goTo(Math.min(searchTarget.page, binderRef.current.pageCount - 1))
-            setSearchTarget(null)
-          }}
+          onClose={() => setSearchTarget(null)}
         />
       )}
 
