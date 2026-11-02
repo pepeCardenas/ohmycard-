@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { type CardBrief, type Lang, fetchCardRef, imageUrl, searchCards } from './api'
 import type { CardRef } from './db'
 
@@ -26,9 +26,6 @@ export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [adding, setAdding] = useState<string | null>(null)
-  const [added, setAdded] = useState(0)
-  const [toast, setToast] = useState<string | null>(null)
-  const toastTimer = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     try {
@@ -63,20 +60,14 @@ export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
     }
   }, [query, lang])
 
-  useEffect(() => () => clearTimeout(toastTimer.current), [])
-
   const pick = async (card: CardBrief) => {
     if (adding) return
     setAdding(card.id)
     try {
+      // Al agregarla, el binder cierra la búsqueda y vuelve a la página de la carta.
       await onAdd(await fetchCardRef(card, lang))
-      setAdded((n) => n + 1)
-      setToast(`${card.name} agregada`)
-      clearTimeout(toastTimer.current)
-      toastTimer.current = window.setTimeout(() => setToast(null), 1800)
     } catch {
       setError('No se pudo agregar la carta.')
-    } finally {
       setAdding(null)
     }
   }
@@ -94,7 +85,7 @@ export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
           onChange={(e) => setQuery(e.target.value)}
         />
         <button className="done" onClick={onClose}>
-          {added > 0 ? 'Listo' : 'Cerrar'}
+          Cerrar
         </button>
       </header>
 
@@ -112,7 +103,7 @@ export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
       <div className="results">
         {error && <p className="hint error-text">{error}</p>}
         {!error && results === null && (
-          <p className="hint">Escribe al menos 2 letras. Toca una carta para ponerla en el binder; puedes agregar varias seguidas.</p>
+          <p className="hint">Escribe al menos 2 letras. Toca una carta para ponerla en el binder.</p>
         )}
         {!error && loading && results === null && <p className="hint">Buscando…</p>}
         {!error && results?.length === 0 && !loading && (
@@ -143,7 +134,6 @@ export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
         )}
       </div>
 
-      {toast && <div className="busy">{toast}</div>}
     </div>
   )
 }
