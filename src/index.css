@@ -1,0 +1,320 @@
+:root {
+  --bg: #1b1530;
+  --leather: #2c2350;
+  --leather-edge: #3a2f66;
+  --pocket: rgba(255, 255, 255, 0.06);
+  --pocket-border: rgba(255, 255, 255, 0.14);
+  --gold: #f5c542;
+  --text: #f2eefc;
+  --muted: #a99fcc;
+  --danger: #ff6b6b;
+  --header-h: 56px;
+  --footer-h: 72px;
+
+  color-scheme: dark;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--bg);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.loading {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--muted);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* --- Cabecera --- */
+.top {
+  height: var(--header-h);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+.name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  padding: 6px 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name-input {
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--leather);
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  padding: 4px 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.count {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* --- Avisos --- */
+.banner {
+  flex: none;
+  margin: 0 16px 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--gold);
+  color: #1b1530;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.banner button {
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.banner.error {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* --- Páginas que se deslizan --- */
+.pager {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.pager::-webkit-scrollbar {
+  display: none;
+}
+
+.page {
+  flex: 0 0 100%;
+  height: 100%;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  display: grid;
+  place-items: center;
+  padding: 4px 12px;
+}
+
+/* Hoja del binder: 3x3 bolsillos con proporción de carta (63 x 88 mm) */
+.sheet {
+  --gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: var(--gap);
+  padding: 10px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, var(--leather-edge), var(--leather));
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  aspect-ratio: 189 / 264;
+  width: min(100%, 520px);
+  max-height: 100%;
+}
+
+@supports (width: 1cqh) {
+  .page {
+    container-type: size;
+  }
+  .sheet {
+    width: min(100cqw, 520px, calc(100cqh * 189 / 264));
+  }
+}
+
+.slot {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border-radius: 6px;
+  background: var(--pocket);
+  border: 1px dashed var(--pocket-border);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  transition: transform 0.12s ease;
+}
+
+.slot:active {
+  transform: scale(0.96);
+}
+
+.slot.filled {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* brillo de la funda plástica */
+.slot.filled::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(125deg, rgba(255, 255, 255, 0.18) 0%, transparent 35%, transparent 70%, rgba(255, 255, 255, 0.08) 100%);
+  pointer-events: none;
+}
+
+.slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.plus {
+  font-size: 1.6rem;
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.slot.target {
+  outline: 2px dashed var(--gold);
+  outline-offset: -2px;
+}
+
+.slot.source {
+  outline: 3px solid var(--gold);
+  opacity: 0.6;
+}
+
+/* --- Barra inferior --- */
+.bottom {
+  height: var(--footer-h);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+}
+
+.nav {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-size: 2rem;
+  line-height: 1;
+  background: var(--leather);
+}
+
+.nav:disabled {
+  opacity: 0.3;
+}
+
+.pageinfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.95rem;
+}
+
+.link {
+  color: var(--gold);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 4px 8px;
+}
+
+/* --- Visor de carta --- */
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: rgba(10, 6, 24, 0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+.viewer img {
+  max-width: 100%;
+  max-height: calc(100% - 90px);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.actions button {
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--leather-edge);
+  font-weight: 600;
+}
+
+.actions .danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.busy {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--footer-h) + 16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #1b1530;
+  font-weight: 700;
+}
