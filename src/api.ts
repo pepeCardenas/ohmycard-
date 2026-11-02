@@ -50,3 +50,72 @@ export async function fetchCardRef(brief: CardBrief, lang: Lang): Promise<CardRe
   }
   return ref
 }
+
+// --- Detalle completo y precios -----------------------------------------------
+
+export interface TcgplayerVariant {
+  lowPrice?: number
+  midPrice?: number
+  highPrice?: number
+  marketPrice?: number
+  directLowPrice?: number
+}
+
+export interface Pricing {
+  cardmarket?: { updated?: string; unit?: string } & Record<string, number | string | undefined>
+  tcgplayer?: { updated?: string; unit?: string } & Record<string, TcgplayerVariant | string | undefined>
+}
+
+export interface CardDetail {
+  id: string
+  localId: string
+  name: string
+  image?: string
+  category?: string
+  illustrator?: string
+  rarity?: string
+  hp?: number
+  types?: string[]
+  stage?: string
+  evolveFrom?: string
+  description?: string
+  regulationMark?: string
+  retreat?: number
+  set?: { id: string; name: string; cardCount?: { official?: number; total?: number } }
+  attacks?: { name: string; cost?: string[]; damage?: string | number; effect?: string }[]
+  weaknesses?: { type: string; value?: string }[]
+  pricing?: Pricing | null
+}
+
+const detailCache = new Map<string, Promise<CardDetail>>()
+
+async function getCard(id: string, lang: string): Promise<CardDetail> {
+  const res = await fetch(`${BASE}/${lang}/cards/${encodeURIComponent(id)}`)
+  if (!res.ok) throw new Error(`TCGdex respondió ${res.status}`)
+  return (await res.json()) as CardDetail
+}
+
+/**
+ * Datos completos de una carta con sus precios. Si la versión en el idioma
+ * elegido no trae precios, los toma de la versión en inglés (mismo id).
+ */
+export function fetchCardDetail(id: string, lang: string): Promise<CardDetail> {
+  const key = `${lang}:${id}`
+  let p = detailCache.get(key)
+  if (!p) {
+    p = (async () => {
+      const card = await getCard(id, lang)
+      if (!card.pricing && lang !== 'en') {
+        try {
+          card.pricing = (await getCard(id, 'en')).pricing
+        } catch {
+          /* sin precios en inglés tampoco */
+        }
+      }
+      return card
+    })()
+    p.catch(() => detailCache.delete(key))
+    detailCache.set(key, p)
+  }
+  return p
+}
