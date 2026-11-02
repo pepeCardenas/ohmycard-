@@ -13,6 +13,7 @@ import {
   swapSlots,
 } from './db'
 import { prepareCardImage } from './image'
+import CardDetailView from './CardDetailView'
 import SearchSheet from './SearchSheet'
 
 type Pos = { page: number; slot: number }
@@ -309,7 +310,23 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
         </div>
       )}
 
-      {viewing && viewingItem && (
+      {viewing && isCard(viewingItem) && (
+        <CardDetailView
+          card={viewingItem}
+          onMove={() => {
+            setMoving(viewing)
+            setViewing(null)
+          }}
+          onChange={() => {
+            setChoosing(viewing)
+            setViewing(null)
+          }}
+          onRemove={() => removeItem(viewing)}
+          onClose={() => setViewing(null)}
+        />
+      )}
+
+      {viewing && viewingItem && !isCard(viewingItem) && (
         <div className="viewer" onClick={() => setViewing(null)}>
           {viewingSrc ? (
             <img src={viewingSrc} alt="Carta" onClick={(e) => e.stopPropagation()} />
