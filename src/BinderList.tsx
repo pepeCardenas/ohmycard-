@@ -1,5 +1,7 @@
+'use client'
+
 import { useEffect, useState } from 'react'
-import { type BinderMeta, countSlots } from './db'
+import { type BinderMeta, listBinders } from './store'
 
 interface Props {
   binders: BinderMeta[]
@@ -9,17 +11,29 @@ interface Props {
   onRename: (id: string, name: string) => void
   onDelete: (id: string) => void
   onClose: () => void
+  userEmail: string
+  onSignOut: () => void
 }
 
-export default function BinderList({ binders, currentId, onOpen, onCreate, onRename, onDelete, onClose }: Props) {
+export default function BinderList({
+  binders,
+  currentId,
+  onOpen,
+  onCreate,
+  onRename,
+  onDelete,
+  onClose,
+  userEmail,
+  onSignOut,
+}: Props) {
   const [counts, setCounts] = useState<Map<string, number>>(new Map())
   const [editing, setEditing] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
 
   useEffect(() => {
-    countSlots()
-      .then(setCounts)
+    listBinders()
+      .then((list) => setCounts(new Map(list.map((b) => [b.id, b.cardCount ?? 0]))))
       .catch(() => {})
   }, [binders])
 
@@ -100,6 +114,13 @@ export default function BinderList({ binders, currentId, onOpen, onCreate, onRen
           Crear
         </button>
       </form>
+
+      <footer className="account">
+        <span>{userEmail}</span>
+        <button className="link" onClick={onSignOut}>
+          Cerrar sesión
+        </button>
+      </footer>
     </div>
   )
 }

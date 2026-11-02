@@ -1,3 +1,5 @@
+'use client'
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { imageUrl } from './api'
 import {
@@ -11,7 +13,8 @@ import {
   putSlot,
   slotKey,
   swapSlots,
-} from './db'
+  uploadPhoto,
+} from './store'
 import { prepareCardImage } from './image'
 import CardDetailView from './CardDetailView'
 import SearchSheet from './SearchSheet'
@@ -30,7 +33,6 @@ const toPos = (i: number): Pos => ({ page: Math.floor(i / SLOTS_PER_PAGE), slot:
 export default function BinderView({ binder, onChange, onOpenList }: Props) {
   const id = binder.id
   const [items, setItems] = useState<Map<string, SlotItem>>(new Map())
-  const [photoUrls, setPhotoUrls] = useState<Map<string, string>>(new Map())
   const [loaded, setLoaded] = useState(false)
   const [page, setPage] = useState(0)
   const [viewing, setViewing] = useState<Pos | null>(null)
@@ -56,23 +58,13 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
         setItems(m)
         setLoaded(true)
       })
-      .catch(() => setError('No se pudo abrir el almacenamiento del navegador.'))
+      .catch(() => setError('No se pudo cargar el binder. Revisa tu conexión.'))
   }, [id])
-
-  // URLs para mostrar las fotos guardadas
-  useEffect(() => {
-    const next = new Map<string, string>()
-    items.forEach((v, k) => {
-      if (v instanceof Blob) next.set(k, URL.createObjectURL(v))
-    })
-    setPhotoUrls(next)
-    return () => next.forEach((u) => URL.revokeObjectURL(u))
-  }, [items])
 
   const srcFor = (key: string, quality: 'low' | 'high'): string | undefined => {
     const item = items.get(key)
     if (isCard(item)) return item.image ? imageUrl(item.image, quality) : undefined
-    return photoUrls.get(key)
+    return item?.url
   }
 
   const goTo = useCallback((p: number) => {
@@ -96,9 +88,8 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
 
   /** Guarda un elemento en un casillero, agregando páginas si hace falta. */
   const place = async (pos: Pos, item: SlotItem, map: Map<string, SlotItem>) => {
-    const key = slotKey(id, pos.page, pos.slot)
-    await putSlot(key, item)
-    map.set(key, item)
+    await putSlot(id, pos.page, pos.slot, item)
+    map.set(slotKey(id, pos.page, pos.slot), item)
     const b = binderRef.current
     if (pos.page >= b.pageCount) onChange({ ...b, pageCount: pos.page + 1 })
   }
@@ -123,7 +114,7 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
       let idx = toIndex(start)
       for (const [n, file] of files.entries()) {
         if (n > 0) idx = nextEmpty(idx, next)
-        await place(toPos(idx), await prepareCardImage(file), next)
+        await place(toPos(idx), await uploadPhoto(await prepareCardImage(file)), next)
         idx++
       }
       setItems(next)
@@ -157,7 +148,13 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
       if (from !== key) {
         const a = items.get(from)
         const b = items.get(key)
-        await swapSlots(from, key, a, b)
+        try {
+          await swapSlots(id, moving, { page: p, slot: s })
+        } catch {
+          setError('No se pudo mover la carta.')
+          setMoving(null)
+          return
+        }
         const next = new Map(items)
         if (b) next.set(from, b)
         else next.delete(from)
@@ -174,7 +171,12 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
 
   const removeItem = async (t: Pos) => {
     const key = slotKey(id, t.page, t.slot)
-    await deleteSlot(key)
+    try {
+      await deleteSlot(id, t.page, t.slot)
+    } catch {
+      setError('No se pudo quitar la carta.')
+      return
+    }
     const next = new Map(items)
     next.delete(key)
     setItems(next)
@@ -328,21 +330,7 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
 
       {viewing && viewingItem && !isCard(viewingItem) && (
         <div className="viewer" onClick={() => setViewing(null)}>
-          {viewingSrc ? (
-            <img src={viewingSrc} alt="Carta" onClick={(e) => e.stopPropagation()} />
-          ) : (
-            <div className="noimg big">{isCard(viewingItem) ? viewingItem.name : ''}</div>
-          )}
-          {isCard(viewingItem) && (
-            <div className="card-info" onClick={(e) => e.stopPropagation()}>
-              <strong>{viewingItem.name}</strong>
-              <span>
-                {[viewingItem.setName, viewingItem.localId && `#${viewingItem.localId}`, viewingItem.rarity]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </span>
-            </div>
-          )}
+          <img src={viewingSrc} alt="Carta" onClick={(e) => e.stopPropagation()} />
           <div className="actions" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => {
