@@ -5,11 +5,35 @@ import { headers } from 'next/headers'
 import { db, ensureDb } from './db'
 import * as schema from './schema'
 
-const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL
+/** Convierte "ohmycard.vercel.app", "https://x.app/" o "https://x.app/login" en "https://x.app". */
+function toOrigin(value?: string): string | undefined {
+  const v = value?.trim()
+  if (!v) return undefined
+  try {
+    return new URL(v.includes('://') ? v : `https://${v}`).origin
+  } catch {
+    return undefined
+  }
+}
+
+const baseURL =
+  toOrigin(process.env.BETTER_AUTH_URL) ??
+  toOrigin(process.env.VERCEL_PROJECT_PRODUCTION_URL) ??
+  toOrigin(process.env.VERCEL_URL)
+
+// Direcciones desde las que se acepta iniciar sesión: la configurada y todas las que asigna Vercel
+// (producción, rama y despliegue). TRUSTED_ORIGINS permite sumar otras separadas por coma.
+const trustedOrigins = [
+  baseURL,
+  toOrigin(process.env.VERCEL_PROJECT_PRODUCTION_URL),
+  toOrigin(process.env.VERCEL_BRANCH_URL),
+  toOrigin(process.env.VERCEL_URL),
+  ...(process.env.TRUSTED_ORIGINS ?? '').split(',').map(toOrigin),
+].filter((o): o is string => !!o)
 
 export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL ?? (vercelUrl ? `https://${vercelUrl}` : undefined),
-  trustedOrigins: [process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`].filter(Boolean) as string[],
+  baseURL,
+  trustedOrigins,
   database: drizzleAdapter(db, {
     provider: 'sqlite',
     schema: { user: schema.user, session: schema.session, account: schema.account, verification: schema.verification },
