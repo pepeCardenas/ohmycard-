@@ -1,6 +1,7 @@
 import { and, asc, count, eq, max } from 'drizzle-orm'
 import { fail, json, withUser } from '@/lib/api'
 import { db } from '@/lib/db'
+import { thumb } from '@/lib/items'
 import { binder, slot } from '@/lib/schema'
 
 const newId = () => `b${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`
@@ -39,14 +40,6 @@ export async function GET() {
     }
     return json(rows.map((r) => ({ ...r, preview: previews.get(r.id) ?? Array(9).fill(null) })))
   })
-}
-
-/** URL chica de la imagen de un casillero (carta oficial o foto). */
-function thumb(data: unknown): string | null {
-  const d = data as { kind?: string; image?: string; url?: string }
-  if (d?.kind === 'card') return d.image ? `${d.image}/low.webp` : null
-  if (d?.kind === 'photo') return d.url ?? null
-  return null
 }
 
 export async function POST(req: Request) {

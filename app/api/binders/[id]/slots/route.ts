@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { fail, json, ownBinder, withUser } from '@/lib/api'
 import { db } from '@/lib/db'
+import { cleanItem } from '@/lib/items'
 import { binder, slot } from '@/lib/schema'
 
 type Ctx = { params: Promise<{ id: string }> }
@@ -17,35 +18,6 @@ function validPos(page: unknown, s: unknown): page is number {
     (s as number) >= 0 &&
     (s as number) < SLOTS_PER_PAGE
   )
-}
-
-/** Un casillero sólo puede tener una carta oficial o una foto, con campos conocidos. */
-function cleanItem(raw: unknown): Record<string, string | number> | null {
-  if (!raw || typeof raw !== 'object') return null
-  const r = raw as Record<string, unknown>
-  const str = (k: string, max = 300) => (typeof r[k] === 'string' ? (r[k] as string).slice(0, max) : undefined)
-  if (r.kind === 'card') {
-    const id = str('id', 80)
-    const name = str('name', 120)
-    if (!id || !name) return null
-    const item: Record<string, string> = { kind: 'card', id, name, lang: str('lang', 5) ?? 'en' }
-    for (const k of ['image', 'setName', 'localId', 'rarity']) {
-      const v = str(k)
-      if (v) item[k] = v
-    }
-    if (item.image && !item.image.startsWith('https://assets.tcgdex.net/')) delete item.image
-    return item
-  }
-  if (r.kind === 'photo') {
-    const url = str('url', 500)
-    if (!url || !(url.startsWith('/api/photos/') || url.startsWith('https://'))) return null
-    const item: Record<string, string | number> = { kind: 'photo', url }
-    // Fotos grandes: 2 casilleros horizontal o vertical, o 2x2
-    if (r.cols === 2) item.cols = 2
-    if (r.rows === 2) item.rows = 2
-    return item
-  }
-  return null
 }
 
 const spanOf = (data: unknown) => {

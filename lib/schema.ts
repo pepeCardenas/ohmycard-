@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { blob, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { blob, index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 // --- Tablas de Better Auth ---------------------------------------------------
 
@@ -91,3 +91,30 @@ export const photo = sqliteTable('photo', {
   mime: text('mime').notNull(),
   data: blob('data', { mode: 'buffer' }).notNull(),
 })
+
+/** Colección: cartas sin páginas ni casilleros, en el orden en que se agregan. */
+export const collection = sqliteTable('collection', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  position: integer('position').notNull().default(0),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+/** Carta oficial o foto dentro de una colección, guardada como JSON. */
+export const collectionItem = sqliteTable(
+  'collection_item',
+  {
+    id: text('id').primaryKey(),
+    collectionId: text('collection_id')
+      .notNull()
+      .references(() => collection.id, { onDelete: 'cascade' }),
+    data: text('data', { mode: 'json' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (t) => [index('collection_item_by_collection').on(t.collectionId, t.createdAt)],
+)
