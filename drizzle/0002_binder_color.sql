@@ -1,0 +1,1 @@
+ALTER TABLE `binder` ADD `color` text DEFAULT 'morado' NOT NULL;

@@ -15,6 +15,13 @@
       "when": 1793674116079,
       "tag": "0001_colecciones",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793706183706,
+      "tag": "0002_binder_color",
+      "breakpoints": true
     }
   ]
 }

@@ -205,6 +205,10 @@ export default function Home({ userEmail }: { userEmail: string }) {
               renameCollection(id, name).catch(() => setError('No se pudo guardar el cambio.'))
             }
           }}
+          onColor={(id, color) => {
+            const b = binders.find((x) => x.id === id)
+            if (b) update({ ...b, color })
+          }}
           onDelete={async (kind, id) => {
             try {
               if (kind === 'binder') {

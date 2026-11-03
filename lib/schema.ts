@@ -63,6 +63,8 @@ export const binder = sqliteTable('binder', {
   name: text('name').notNull(),
   pageCount: integer('page_count').notNull().default(2),
   position: integer('position').notNull().default(0),
+  /** Color de las hojas del binder (ver src/binderColors.ts). */
+  color: text('color').notNull().default('morado'),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .default(sql`(unixepoch())`),
