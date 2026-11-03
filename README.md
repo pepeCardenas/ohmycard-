@@ -1,35 +1,38 @@
 # OhMyCard!!
 
 Web app para el celular (PWA, se instala como una app nativa) para coleccionar cartas de Pokémon TCG.
+Cada persona tiene su cuenta (mail y contraseña) y sus binders se guardan en la nube.
 
 ## Funciones
 
-- **Binder 3x3**: páginas de 9 casilleros que se pasan deslizando. Toca un casillero vacío para subir una o varias fotos de tus cartas. Toca una carta para verla en grande, moverla a otro casillero, cambiar la foto o quitarla.
-- **Cartas oficiales**: al tocar un casillero vacío puedes buscar una carta por nombre (en español o inglés) con la API gratuita de [TCGdex](https://tcgdex.dev) y al tocarla se agrega y vuelves al binder.
-- **Detalle y precio**: al tocar una carta oficial ves su información (set, rareza, PS, ataques, ilustrador…) y el precio estimado en Cardmarket (EUR) y TCGplayer (USD).
+- **Binder 3x3**: páginas de 9 casilleros que se pasan deslizando. Toca un casillero vacío para buscar una carta oficial o subir una foto.
+- **Cartas oficiales**: búsqueda por nombre (en español o inglés) con la API gratuita de [TCGdex](https://tcgdex.dev).
+- **Detalle y precio**: al tocar una carta oficial ves su información y el precio estimado en Cardmarket (EUR) y TCGplayer (USD).
 - **Varios binders**: toca el nombre del binder para crear, renombrar, borrar o cambiar de colección.
-- Todo se guarda en el propio teléfono (IndexedDB). No hace falta cuenta ni servidor.
-- Funciona sin conexión una vez instalada, incluidas las imágenes de cartas ya vistas.
+- **Cuentas**: registro e inicio de sesión con mail y contraseña.
+- **Importar**: si usaste la versión anterior (que guardaba todo en el teléfono), la app ofrece pasar esas cartas a tu cuenta.
 
-### Próximamente
+## Tecnología
 
-1. Valor total de cada binder.
-2. Cartas personalizadas generadas con IA.
+- [Next.js](https://nextjs.org) desplegado en [Vercel](https://vercel.com).
+- Base de datos [Turso](https://turso.tech) (SQLite) con [Drizzle ORM](https://orm.drizzle.team). Las tablas se crean solas la primera vez que arranca la app (`drizzle/`).
+- Cuentas con [Better Auth](https://www.better-auth.com). Las contraseñas se guardan cifradas en la base.
+- Fotos en [Vercel Blob](https://vercel.com/docs/vercel-blob). Si no está configurado, se guardan en la base.
 
-## Instalar en el celular
+## Variables de entorno
 
-Abre la página publicada y:
+| Variable | Para qué | Dónde se consigue |
+| --- | --- | --- |
+| `TURSO_DATABASE_URL` | Dirección de la base (`libsql://...`) | Panel de Turso → tu base → Connect |
+| `TURSO_AUTH_TOKEN` | Token de acceso a la base | Panel de Turso → tu base → Create token |
+| `BETTER_AUTH_SECRET` | Clave para firmar las sesiones (32+ caracteres al azar) | Generarla con `openssl rand -base64 32` o en https://www.better-auth.com/docs/installation |
+| `BETTER_AUTH_URL` | Dirección pública de la app, ej. `https://ohmycard.vercel.app` | La URL de producción de Vercel |
+| `BLOB_READ_WRITE_TOKEN` | Guardar fotos en Vercel Blob (opcional) | Se agrega sola al crear un Blob Store en Vercel → Storage |
 
-- **Android (Chrome)**: menú ⋮ → "Instalar app" o "Agregar a la pantalla principal".
-- **iPhone (Safari)**: botón Compartir → "Agregar a inicio".
-
-## Desarrollo
+## Desarrollo local
 
 ```bash
 npm install
-npm run dev      # servidor local
-npm run build    # versión de producción en dist/
+cp .env.example .env.local   # completar BETTER_AUTH_SECRET; sin Turso usa un archivo local.db
+npm run dev
 ```
-
-Cada push a `main` se publica en GitHub Pages con `.github/workflows/deploy.yml`
-(requiere activar Pages con origen "GitHub Actions" en Settings → Pages).

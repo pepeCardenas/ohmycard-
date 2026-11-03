@@ -1,6 +1,6 @@
 // Cliente de la API pública de TCGdex (https://tcgdex.dev): gratis, sin clave y con cartas en español.
 
-import type { CardRef } from './db'
+import type { CardRef } from './store'
 
 const BASE = 'https://api.tcgdex.net/v2'
 

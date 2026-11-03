@@ -1,9 +1,8 @@
 // Service worker mínimo: guarda la app en caché para que abra sin conexión.
-const CACHE = 'ohmycard-v2'
+const CACHE = 'ohmycard-v3'
 const IMAGES = 'ohmycard-cartas'
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html'])))
   self.skipWaiting()
 })
 
@@ -34,14 +33,18 @@ self.addEventListener('fetch', (event) => {
     )
     return
   }
-  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return
+  const url = new URL(req.url)
+  // Sesión y login siempre por red; nada de caché.
+  if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/auth') || url.pathname === '/login') return
   event.respondWith(
     fetch(req)
       .then((res) => {
-        const copy = res.clone()
-        caches.open(CACHE).then((c) => c.put(req, copy))
+        if (res.ok && !res.redirected) {
+          const copy = res.clone()
+          caches.open(CACHE).then((c) => c.put(req, copy))
+        }
         return res
       })
-      .catch(() => caches.match(req).then((r) => r || caches.match('./index.html'))),
+      .catch(() => caches.match(req).then((r) => r || Response.error())),
   )
 })

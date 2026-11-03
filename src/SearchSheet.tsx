@@ -1,6 +1,8 @@
+'use client'
+
 import { useEffect, useState } from 'react'
 import { type CardBrief, type Lang, fetchCardRef, imageUrl, searchCards } from './api'
-import type { CardRef } from './db'
+import type { CardRef } from './store'
 
 const LANG_KEY = 'ohmycard:lang'
 

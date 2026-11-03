@@ -1,6 +1,8 @@
+'use client'
+
 import { useEffect, useState } from 'react'
 import { type CardDetail, type Pricing, type TcgplayerVariant, fetchCardDetail, imageUrl } from './api'
-import type { CardRef } from './db'
+import type { CardRef } from './store'
 
 interface Props {
   card: CardRef
