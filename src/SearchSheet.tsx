@@ -120,9 +120,7 @@ export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
         {!error && results?.length === 0 && !loading && (
           <p className="hint">
             No encontré cartas con ese nombre
-            {lang === 'any'
-              ? '. En japonés, coreano o chino hay que escribir el nombre en ese idioma.'
-              : '. Prueba con "Cualquier idioma".'}
+            {lang === 'any' ? '. Revisa cómo está escrito.' : '. Prueba con "Cualquier idioma".'}
           </p>
         )}
         {results && results.length > 0 && (

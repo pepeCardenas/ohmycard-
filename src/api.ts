@@ -1,5 +1,6 @@
 // Cliente de la API pública de TCGdex (https://tcgdex.dev): gratis, sin clave y con cartas en español.
 
+import { normalize, translateQuery } from './names'
 import type { CardRef } from './store'
 
 const BASE = 'https://api.tcgdex.net/v2'
@@ -56,12 +57,35 @@ async function searchIn(name: string, lang: Lang, perPage: number, signal?: Abor
 }
 
 /**
- * Busca cartas por nombre. Con "any" consulta todos los idiomas en paralelo y junta
- * los resultados (los idiomas que fallan se ignoran; si fallan todos, es un error).
+ * Busca en un idioma probando el nombre traducido del Pokémon (si se reconoce) y lo
+ * que escribió el usuario, sin repetir cartas.
+ */
+async function searchTranslated(query: string, lang: Lang, perPage: number, signal?: AbortSignal): Promise<CardBrief[]> {
+  const t = await translateQuery(query, lang).catch(() => null)
+  const terms = [...new Set([...(t?.names ?? []), ...(t?.exact ? [] : [query])])]
+  const per = Math.max(10, Math.ceil(perPage / terms.length))
+  const settled = await Promise.allSettled(terms.map((term) => searchIn(term, lang, per, signal)))
+  const ok = settled.filter((r): r is PromiseFulfilledResult<CardBrief[]> => r.status === 'fulfilled')
+  if (ok.length === 0) throw (settled[0] as PromiseRejectedResult).reason
+  const seen = new Set<string>()
+  let cards = ok.flatMap((r) => r.value).filter((c) => !seen.has(c.id) && seen.add(c.id))
+  if (t?.suffix) {
+    // "sylveon ex": se traduce "sylveon" y se dejan las cartas que además dicen "ex".
+    const withSuffix = cards.filter((c) => normalize(c.name).includes(t.suffix))
+    if (withSuffix.length) cards = withSuffix
+  }
+  return cards
+}
+
+/**
+ * Busca cartas por nombre. El nombre del Pokémon se traduce solo al idioma de las
+ * cartas, así "Sylveon" encuentra ニンフィア en japonés. Con "any" consulta todos los
+ * idiomas en paralelo y junta los resultados (los idiomas que fallan se ignoran; si
+ * fallan todos, es un error).
  */
 export async function searchCards(name: string, lang: LangChoice, signal?: AbortSignal): Promise<CardBrief[]> {
-  if (lang !== 'any') return searchIn(name, lang, 60, signal)
-  const settled = await Promise.allSettled(LANGS.map((l) => searchIn(name, l.code, 30, signal)))
+  if (lang !== 'any') return searchTranslated(name, lang, 60, signal)
+  const settled = await Promise.allSettled(LANGS.map((l) => searchTranslated(name, l.code, 30, signal)))
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
   const ok = settled.filter((r): r is PromiseFulfilledResult<CardBrief[]> => r.status === 'fulfilled')
   if (ok.length === 0) throw new Error('No se pudo buscar')
