@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { type CardBrief, type LangChoice, LANGS, fetchCardRef, imageUrl, isLang, searchCards } from './api'
+import { type CardBrief, type LangChoice, type SearchBy, LANGS, fetchCardRef, imageUrl, isLang, searchCards } from './api'
 import type { CardRef } from './store'
 
 const LANG_KEY = 'ohmycard:lang'
@@ -35,6 +35,7 @@ export default function SearchSheet({ targetLabel, onAdd, onAddMany, onClose }: 
   const [saving, setSaving] = useState(false)
   const [query, setQuery] = useState('')
   const [lang, setLang] = useState<LangChoice>(savedLang)
+  const [by, setBy] = useState<SearchBy>('name')
   const [results, setResults] = useState<CardBrief[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +61,7 @@ export default function SearchSheet({ targetLabel, onAdd, onAddMany, onClose }: 
     const t = window.setTimeout(() => {
       setLoading(true)
       setError(null)
-      searchCards(q, lang, ctrl.signal)
+      searchCards(q, lang, ctrl.signal, by)
         .then(setResults)
         .catch((e) => {
           if ((e as Error).name !== 'AbortError') setError('No se pudo buscar. Revisa tu conexión.')
@@ -71,7 +72,7 @@ export default function SearchSheet({ targetLabel, onAdd, onAddMany, onClose }: 
       clearTimeout(t)
       ctrl.abort()
     }
-  }, [query, lang])
+  }, [query, lang, by])
 
   const toggle = (card: CardBrief) => {
     setSelected((prev) => {
@@ -115,7 +116,7 @@ export default function SearchSheet({ targetLabel, onAdd, onAddMany, onClose }: 
           type="search"
           inputMode="search"
           autoFocus
-          placeholder="Nombre de la carta, ej. Pikachu"
+          placeholder={by === 'name' ? 'Nombre de la carta, ej. Pikachu' : 'Ilustrador, ej. Mitsuhiro Arita'}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -123,6 +124,25 @@ export default function SearchSheet({ targetLabel, onAdd, onAddMany, onClose }: 
           Cerrar
         </button>
       </header>
+
+      <div className="tabs search-by" role="tablist" aria-label="Buscar por">
+        {(
+          [
+            ['name', 'Pokémon'],
+            ['illustrator', 'Ilustrador'],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            role="tab"
+            aria-selected={by === value}
+            className={`tab${by === value ? ' on' : ''}`}
+            onClick={() => setBy(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       <div className="search-sub">
         <select

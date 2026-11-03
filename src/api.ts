@@ -43,9 +43,18 @@ interface CardFull extends CardBrief {
 /** URL de imagen lista para usar. `image` es la URL base que devuelve la API. */
 export const imageUrl = (image: string, quality: 'low' | 'high') => `${image}/${quality}.webp`
 
-async function searchIn(name: string, lang: Lang, perPage: number, signal?: AbortSignal): Promise<CardBrief[]> {
+/** Por qué campo se busca: nombre de la carta o ilustrador. */
+export type SearchBy = 'name' | 'illustrator'
+
+async function searchIn(
+  name: string,
+  lang: Lang,
+  perPage: number,
+  signal?: AbortSignal,
+  by: SearchBy = 'name',
+): Promise<CardBrief[]> {
   const params = new URLSearchParams({
-    name: `like:${name}`,
+    [by]: `like:${name}`,
     'pagination:page': '1',
     'pagination:itemsPerPage': String(perPage),
   })
@@ -83,9 +92,17 @@ async function searchTranslated(query: string, lang: Lang, perPage: number, sign
  * idiomas en paralelo y junta los resultados (los idiomas que fallan se ignoran; si
  * fallan todos, es un error).
  */
-export async function searchCards(name: string, lang: LangChoice, signal?: AbortSignal): Promise<CardBrief[]> {
-  if (lang !== 'any') return searchTranslated(name, lang, 60, signal)
-  const settled = await Promise.allSettled(LANGS.map((l) => searchTranslated(name, l.code, 30, signal)))
+export async function searchCards(
+  name: string,
+  lang: LangChoice,
+  signal?: AbortSignal,
+  by: SearchBy = 'name',
+): Promise<CardBrief[]> {
+  // Los nombres de ilustradores no se traducen: se buscan tal cual en cada idioma.
+  const one = (l: Lang, perPage: number) =>
+    by === 'illustrator' ? searchIn(name, l, perPage, signal, 'illustrator') : searchTranslated(name, l, perPage, signal)
+  if (lang !== 'any') return one(lang, 60)
+  const settled = await Promise.allSettled(LANGS.map((l) => one(l.code, 30)))
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
   const ok = settled.filter((r): r is PromiseFulfilledResult<CardBrief[]> => r.status === 'fulfilled')
   if (ok.length === 0) throw new Error('No se pudo buscar')
