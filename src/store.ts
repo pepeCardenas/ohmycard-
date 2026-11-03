@@ -114,3 +114,36 @@ export async function uploadPhoto(blob: Blob): Promise<PhotoRef> {
   const { url } = await call<{ url: string }>('/api/photos', { method: 'POST', body: form })
   return { kind: 'photo', url }
 }
+
+// --- Colecciones ---------------------------------------------------------------
+
+export interface CollectionMeta {
+  id: string
+  name: string
+  cardCount?: number
+  /** Miniaturas de las últimas cartas agregadas (hasta 4). */
+  preview?: string[]
+}
+
+export interface CollectionEntry {
+  id: string
+  item: SlotItem
+}
+
+export const listCollections = () => call<CollectionMeta[]>('/api/collections')
+
+export const createCollection = (name: string) =>
+  call<CollectionMeta>('/api/collections', { method: 'POST', body: body({ name }) })
+
+export const renameCollection = (id: string, name: string) =>
+  call<void>(`/api/collections/${id}`, { method: 'PATCH', body: body({ name }) })
+
+export const deleteCollection = (id: string) => call<void>(`/api/collections/${id}`, { method: 'DELETE' })
+
+export const loadCollection = (id: string) => call<CollectionEntry[]>(`/api/collections/${id}/items`)
+
+export const addToCollection = (id: string, items: SlotItem[]) =>
+  call<CollectionEntry[]>(`/api/collections/${id}/items`, { method: 'POST', body: body({ items }) })
+
+export const removeFromCollection = (id: string, itemId: string) =>
+  call<void>(`/api/collections/${id}/items?item=${encodeURIComponent(itemId)}`, { method: 'DELETE' })

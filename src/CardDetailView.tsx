@@ -9,9 +9,11 @@ interface Props {
   card: CardRef
   /** Dónde está en el binder, ej. "Página 1 · casillero 3". */
   where?: string
-  onMove: () => void
-  onChange: () => void
+  onMove?: () => void
+  onChange?: () => void
   onRemove: () => void
+  removeNote?: string
+  removeLabel?: string
   onClose: () => void
 }
 
@@ -131,7 +133,16 @@ function Prices({ pricing }: { pricing?: Pricing | null }) {
   )
 }
 
-export default function CardDetailView({ card, where, onMove, onChange, onRemove, onClose }: Props) {
+export default function CardDetailView({
+  card,
+  where,
+  onMove,
+  onChange,
+  onRemove,
+  onClose,
+  removeNote,
+  removeLabel,
+}: Props) {
   const [detail, setDetail] = useState<CardDetail | null>(null)
   const [error, setError] = useState(false)
   const [zoom, setZoom] = useState(false)
@@ -264,7 +275,14 @@ export default function CardDetailView({ card, where, onMove, onChange, onRemove
         )}
       </div>
 
-      <SlotActions name={name} onMove={onMove} onChange={onChange} onRemove={onRemove} />
+      <SlotActions
+        name={name}
+        onMove={onMove}
+        onChange={onChange}
+        onRemove={onRemove}
+        removeNote={removeNote}
+        removeLabel={removeLabel}
+      />
 
       {zoom && image && (
         <div className="viewer" onClick={() => setZoom(false)} role="dialog" aria-label={`${name} en grande`}>

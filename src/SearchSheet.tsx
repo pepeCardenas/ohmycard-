@@ -20,11 +20,19 @@ const langLabel = (code: string) => LANGS.find((l) => l.code === code)?.label ??
 interface Props {
   /** Texto que indica dónde se va a guardar la próxima carta. */
   targetLabel: string
-  onAdd: (card: CardRef) => Promise<void>
+  /** Una carta por vez: al tocarla se agrega y se cierra la búsqueda. */
+  onAdd?: (card: CardRef) => Promise<void>
+  /** Varias cartas: se tocan para marcarlas y se agregan todas juntas. */
+  onAddMany?: (cards: CardRef[]) => Promise<void>
   onClose: () => void
 }
 
-export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
+const keyOf = (c: CardBrief) => `${c.lang}:${c.id}`
+
+export default function SearchSheet({ targetLabel, onAdd, onAddMany, onClose }: Props) {
+  const multiple = !!onAddMany
+  const [selected, setSelected] = useState<Map<string, CardBrief>>(new Map())
+  const [saving, setSaving] = useState(false)
   const [query, setQuery] = useState('')
   const [lang, setLang] = useState<LangChoice>(savedLang)
   const [results, setResults] = useState<CardBrief[] | null>(null)
@@ -65,8 +73,30 @@ export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
     }
   }, [query, lang])
 
+  const toggle = (card: CardBrief) => {
+    setSelected((prev) => {
+      const next = new Map(prev)
+      if (next.has(keyOf(card))) next.delete(keyOf(card))
+      else next.set(keyOf(card), card)
+      return next
+    })
+  }
+
+  const addSelected = async () => {
+    if (!onAddMany || selected.size === 0 || saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      await onAddMany(await Promise.all([...selected.values()].map(fetchCardRef)))
+    } catch {
+      setError('No se pudieron agregar las cartas.')
+      setSaving(false)
+    }
+  }
+
   const pick = async (card: CardBrief) => {
-    if (adding) return
+    if (multiple) return toggle(card)
+    if (adding || !onAdd) return
     setAdding(`${card.lang}:${card.id}`)
     try {
       // Al agregarla, el binder cierra la búsqueda y vuelve a la página de la carta.
@@ -114,7 +144,11 @@ export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
       <div className="results">
         {error && <p className="hint error-text">{error}</p>}
         {!error && results === null && (
-          <p className="hint">Escribe al menos 2 letras. Toca una carta para ponerla en el binder.</p>
+          <p className="hint">
+            {multiple
+              ? 'Escribe al menos 2 letras. Toca todas las cartas que quieras y después "Agregar".'
+              : 'Escribe al menos 2 letras. Toca una carta para ponerla en el binder.'}
+          </p>
         )}
         {!error && loading && results === null && <p className="hint">Buscando…</p>}
         {!error && results?.length === 0 && !loading && (
@@ -128,10 +162,16 @@ export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
             {results.map((c) => (
               <button
                 key={`${c.lang}:${c.id}`}
-                className={`result${adding === `${c.lang}:${c.id}` ? ' adding' : ''}`}
+                className={`result${adding === keyOf(c) ? ' adding' : ''}${selected.has(keyOf(c)) ? ' selected' : ''}`}
                 onClick={() => pick(c)}
-                aria-label={`Agregar ${c.name} ${c.localId}`}
+                aria-label={`${multiple ? 'Elegir' : 'Agregar'} ${c.name} ${c.localId}`}
+                aria-pressed={multiple ? selected.has(keyOf(c)) : undefined}
               >
+                {selected.has(keyOf(c)) && (
+                  <span className="check" aria-hidden="true">
+                    ✓
+                  </span>
+                )}
                 {c.image ? (
                   <img src={imageUrl(c.image, 'low')} alt="" loading="lazy" />
                 ) : (
@@ -151,6 +191,16 @@ export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
         )}
       </div>
 
+      {multiple && selected.size > 0 && (
+        <div className="select-bar">
+          <button className="link" onClick={() => setSelected(new Map())} disabled={saving}>
+            Desmarcar
+          </button>
+          <button className="primary" onClick={addSelected} disabled={saving}>
+            {saving ? 'Agregando…' : `Agregar ${selected.size} ${selected.size === 1 ? 'carta' : 'cartas'}`}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

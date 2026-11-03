@@ -2,33 +2,42 @@
 
 import { useEffect, useState } from 'react'
 import { authClient } from '@/lib/auth-client'
-import BinderList from './BinderList'
+import BinderList, { type Kind } from './BinderList'
 import BinderView from './BinderView'
+import CollectionView from './CollectionView'
 import { type LegacyBinder, alreadyImported, markImported, readLegacy } from './legacy'
 import {
   type BinderMeta,
+  type CollectionMeta,
   type SlotItem,
   createBinder,
+  createCollection,
   deleteBinder,
+  deleteCollection,
   listBinders,
+  listCollections,
+  renameCollection,
   putSlot,
   saveBinder,
   uploadPhoto,
 } from './store'
 
 const CURRENT_KEY = 'ohmycard:binder'
+const KIND_KEY = 'ohmycard:open-kind'
 
-function readCurrent(): string | null {
+function readCurrent(): { kind: Kind; id: string | null } {
   try {
-    return localStorage.getItem(CURRENT_KEY)
+    const kind = localStorage.getItem(KIND_KEY) === 'collection' ? 'collection' : 'binder'
+    return { kind, id: localStorage.getItem(CURRENT_KEY) }
   } catch {
-    return null
+    return { kind: 'binder', id: null }
   }
 }
 
-function writeCurrent(id: string) {
+function writeCurrent(kind: Kind, id: string) {
   try {
     localStorage.setItem(CURRENT_KEY, id)
+    localStorage.setItem(KIND_KEY, kind)
   } catch {
     /* sin almacenamiento: se abre el primero */
   }
@@ -36,19 +45,25 @@ function writeCurrent(id: string) {
 
 export default function Home({ userEmail }: { userEmail: string }) {
   const [binders, setBinders] = useState<BinderMeta[] | null>(null)
-  const [currentId, setCurrentId] = useState<string | null>(null)
+  const [collections, setCollections] = useState<CollectionMeta[]>([])
+  const [current, setCurrent] = useState<{ kind: Kind; id: string } | null>(null)
   const [showList, setShowList] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [legacy, setLegacy] = useState<LegacyBinder[]>([])
   const [importing, setImporting] = useState<string | null>(null)
 
   const load = async (prefer?: string) => {
-    const list = await listBinders()
+    const [list, cols] = await Promise.all([listBinders(), listCollections().catch(() => [] as CollectionMeta[])])
     setBinders(list)
-    const saved = prefer ?? readCurrent()
-    const id = list.some((b) => b.id === saved) ? saved! : list[0].id
-    setCurrentId(id)
-    writeCurrent(id)
+    setCollections(cols)
+    const saved = prefer ? { kind: 'binder' as Kind, id: prefer } : readCurrent()
+    if (saved.kind === 'collection' && cols.some((c) => c.id === saved.id)) {
+      setCurrent({ kind: 'collection', id: saved.id! })
+    } else {
+      const id = list.some((b) => b.id === saved.id) ? saved.id! : list[0].id
+      setCurrent({ kind: 'binder', id })
+      writeCurrent('binder', id)
+    }
     return list
   }
 
@@ -57,9 +72,9 @@ export default function Home({ userEmail }: { userEmail: string }) {
     if (!alreadyImported()) readLegacy().then(setLegacy).catch(() => {})
   }, [])
 
-  const open = (id: string) => {
-    setCurrentId(id)
-    writeCurrent(id)
+  const open = (kind: Kind, id: string) => {
+    setCurrent({ kind, id })
+    writeCurrent(kind, id)
     setShowList(false)
   }
 
@@ -106,19 +121,32 @@ export default function Home({ userEmail }: { userEmail: string }) {
     window.location.href = '/login'
   }
 
-  const binder = binders?.find((b) => b.id === currentId)
-  if (!binders || !binder) {
+  const binder = current?.kind === 'binder' ? binders?.find((b) => b.id === current.id) : undefined
+  const openCollection = current?.kind === 'collection' ? collections.find((c) => c.id === current.id) : undefined
+  if (!binders || !current || (!binder && !openCollection)) {
     return <div className="loading">{error ?? 'Abriendo tu binder…'}</div>
   }
 
   return (
     <>
-      <BinderView key={binder.id} binder={binder} onChange={update} onOpenList={() => setShowList(true)} />
+      {binder && (
+        <BinderView key={binder.id} binder={binder} onChange={update} onOpenList={() => setShowList(true)} />
+      )}
+      {openCollection && (
+        <CollectionView
+          key={openCollection.id}
+          collection={openCollection}
+          onOpenList={() => setShowList(true)}
+          onCount={(n) =>
+            setCollections((list) => list.map((c) => (c.id === openCollection.id ? { ...c, cardCount: n } : c)))
+          }
+        />
+      )}
 
       {legacyCount > 0 && (
-        <div className="viewer">
-          <div className="chooser">
-            <p>
+        <div className="viewer action-backdrop">
+          <div className="action-sheet" role="dialog" aria-label="Importar cartas">
+            <p className="sheet-text">
               Encontré {legacyCount} {legacyCount === 1 ? 'carta guardada' : 'cartas guardadas'} en este teléfono de la
               versión anterior. ¿Las paso a tu cuenta?
             </p>
@@ -126,10 +154,10 @@ export default function Home({ userEmail }: { userEmail: string }) {
               <p className="muted">{importing}</p>
             ) : (
               <>
-                <button className="primary" onClick={runImport}>
+                <button className="sheet-option primary" onClick={runImport}>
                   Importar a mi cuenta
                 </button>
-                <button className="link" onClick={skipImport}>
+                <button className="sheet-cancel" onClick={skipImport}>
                   Ahora no
                 </button>
               </>
@@ -147,32 +175,50 @@ export default function Home({ userEmail }: { userEmail: string }) {
       {showList && (
         <BinderList
           binders={binders}
-          currentId={binder.id}
+          collections={collections}
+          current={current}
           userEmail={userEmail}
           onSignOut={signOut}
           onOpen={open}
           onClose={() => setShowList(false)}
-          onCreate={async (name) => {
+          onCreate={async (kind, name) => {
             try {
-              const meta = await createBinder(name)
-              setBinders((list) => [...(list ?? []), meta])
-              open(meta.id)
+              if (kind === 'binder') {
+                const meta = await createBinder(name)
+                setBinders((list) => [...(list ?? []), meta])
+                open('binder', meta.id)
+              } else {
+                const meta = await createCollection(name)
+                setCollections((list) => [...list, meta])
+                open('collection', meta.id)
+              }
             } catch {
-              setError('No se pudo crear el binder.')
+              setError(kind === 'binder' ? 'No se pudo crear el binder.' : 'No se pudo crear la colección.')
             }
           }}
-          onRename={(id, name) => {
-            const b = binders.find((x) => x.id === id)
-            if (b) update({ ...b, name })
+          onRename={(kind, id, name) => {
+            if (kind === 'binder') {
+              const b = binders.find((x) => x.id === id)
+              if (b) update({ ...b, name })
+            } else {
+              setCollections((list) => list.map((c) => (c.id === id ? { ...c, name } : c)))
+              renameCollection(id, name).catch(() => setError('No se pudo guardar el cambio.'))
+            }
           }}
-          onDelete={async (id) => {
+          onDelete={async (kind, id) => {
             try {
-              await deleteBinder(id)
-              const rest = binders.filter((b) => b.id !== id)
-              setBinders(rest)
-              if (id === binder.id) open(rest[0].id)
+              if (kind === 'binder') {
+                await deleteBinder(id)
+                const rest = binders.filter((b) => b.id !== id)
+                setBinders(rest)
+                if (current.kind === 'binder' && id === current.id) open('binder', rest[0].id)
+              } else {
+                await deleteCollection(id)
+                setCollections((list) => list.filter((c) => c.id !== id))
+                if (current.kind === 'collection' && id === current.id) open('binder', binders[0].id)
+              }
             } catch {
-              setError('No se pudo borrar el binder.')
+              setError(kind === 'binder' ? 'No se pudo borrar el binder.' : 'No se pudo borrar la colección.')
             }
           }}
         />

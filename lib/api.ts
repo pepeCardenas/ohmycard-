@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { currentUser } from './auth'
 import { db } from './db'
-import { binder } from './schema'
+import { binder, collection } from './schema'
 
 export const json = (data: unknown, status = 200) => NextResponse.json(data, { status })
 export const fail = (message: string, status: number) => NextResponse.json({ error: message }, { status })
@@ -27,6 +27,16 @@ export async function ownBinder(userId: string, binderId: string) {
     .select()
     .from(binder)
     .where(and(eq(binder.id, binderId), eq(binder.userId, userId)))
+    .limit(1)
+  return rows[0] ?? null
+}
+
+/** Devuelve la colección si pertenece al usuario. */
+export async function ownCollection(userId: string, collectionId: string) {
+  const rows = await db
+    .select()
+    .from(collection)
+    .where(and(eq(collection.id, collectionId), eq(collection.userId, userId)))
     .limit(1)
   return rows[0] ?? null
 }
