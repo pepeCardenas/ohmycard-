@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { type CardBrief, type LangChoice, type SearchBy, LANGS, fetchCardRef, imageUrl, isLang, searchCards } from './api'
+import { type CardBrief, type LangChoice, type SearchBy, LANGS, fallbackImage, fetchCardRef, imageUrl, isLang, searchCards } from './api'
 import type { CardRef } from './store'
 
 const LANG_KEY = 'ohmycard:lang'
@@ -28,6 +28,20 @@ interface Props {
 }
 
 const keyOf = (c: CardBrief) => `${c.lang}:${c.id}`
+
+/** Carta sin imagen en su idioma: muestra la de otro idioma si existe. */
+function MissingImage({ card }: { card: CardBrief }) {
+  const [src, setSrc] = useState<string | null | undefined>(undefined)
+  useEffect(() => {
+    let alive = true
+    fallbackImage(card.id, card.lang).then((img) => alive && setSrc(img ?? null))
+    return () => {
+      alive = false
+    }
+  }, [card.id, card.lang])
+  if (src) return <img src={imageUrl(src, 'low')} alt="" loading="lazy" />
+  return <span className="noimg">{card.name}</span>
+}
 
 export default function SearchSheet({ targetLabel, onAdd, onAddMany, onClose }: Props) {
   const multiple = !!onAddMany
@@ -221,7 +235,7 @@ export default function SearchSheet({ targetLabel, onAdd, onAddMany, onClose }: 
                 {c.image ? (
                   <img src={imageUrl(c.image, 'low')} alt="" loading="lazy" />
                 ) : (
-                  <span className="noimg">{c.name}</span>
+                  <MissingImage card={c} />
                 )}
                 <span className="result-name">
                   {c.name} <small>#{c.localId}</small>
