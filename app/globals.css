@@ -95,6 +95,30 @@ button {
   font-size: 0.9rem;
 }
 
+.top-right {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.share-btn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--gold);
+}
+
+.share-btn:disabled {
+  color: var(--muted);
+}
+
+.viewer img.share-preview {
+  max-height: calc(100% - 120px);
+}
+
 /* --- Avisos --- */
 .banner {
   flex: none;

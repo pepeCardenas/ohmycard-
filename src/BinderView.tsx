@@ -18,6 +18,7 @@ import {
 import { prepareCardImage } from './image'
 import CardDetailView from './CardDetailView'
 import SearchSheet from './SearchSheet'
+import { type ShareSlot, downloadImage, renderPage, shareImage } from './share'
 
 type Pos = { page: number; slot: number }
 
@@ -42,6 +43,8 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmRemove, setConfirmRemove] = useState(false)
+  const [shareImg, setShareImg] = useState<{ blob: Blob; url: string; page: number } | null>(null)
+  const [sharing, setSharing] = useState(false)
 
   const pagerRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -200,6 +203,33 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
     goTo(binder.pageCount - 2)
   }
 
+  // --- Compartir la página actual como imagen ---------------------------------
+
+  const sharePageFile = (p: number) => `${binder.name.replace(/[^\p{L}\p{N}]+/gu, '-')}-pagina-${p + 1}.png`
+
+  const openShare = async () => {
+    const p = page
+    setSharing(true)
+    try {
+      const slots: ShareSlot[] = Array.from({ length: SLOTS_PER_PAGE }, (_, s) => {
+        const key = slotKey(id, p, s)
+        const item = items.get(key)
+        return { src: srcFor(key, 'high'), name: isCard(item) ? item.name : undefined }
+      })
+      const blob = await renderPage(binder.name, p, binder.pageCount, slots)
+      setShareImg({ blob, url: URL.createObjectURL(blob), page: p })
+    } catch {
+      setError('No se pudo armar la imagen para compartir.')
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  const closeShare = () => {
+    if (shareImg) URL.revokeObjectURL(shareImg.url)
+    setShareImg(null)
+  }
+
   const filled = items.size
   const isLast = page >= binder.pageCount - 1
   const viewingItem = viewing ? items.get(slotKey(id, viewing.page, viewing.slot)) : undefined
@@ -211,9 +241,25 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
         <button className="name" onClick={onOpenList} aria-label="Cambiar de binder">
           {binder.name} <span className="caret">▾</span>
         </button>
-        <span className="count">
-          {filled} {filled === 1 ? 'carta' : 'cartas'}
-        </span>
+        <div className="top-right">
+          <span className="count">
+            {filled} {filled === 1 ? 'carta' : 'cartas'}
+          </span>
+          <button className="share-btn" onClick={openShare} disabled={sharing} aria-label="Compartir esta página">
+            {sharing ? '…' : (
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path
+                  d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </button>
+        </div>
       </header>
 
       {moving && (
@@ -365,6 +411,22 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
           onAdd={addCard}
           onClose={() => setSearchTarget(null)}
         />
+      )}
+
+      {shareImg && (
+        <div className="viewer" onClick={closeShare}>
+          <img className="share-preview" src={shareImg.url} alt={`Página ${shareImg.page + 1}`} onClick={(e) => e.stopPropagation()} />
+          <div className="actions" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="primary"
+              onClick={() => shareImage(shareImg.blob, sharePageFile(shareImg.page), binder.name)}
+            >
+              Compartir
+            </button>
+            <button onClick={() => downloadImage(shareImg.blob, sharePageFile(shareImg.page))}>Guardar imagen</button>
+            <button onClick={closeShare}>Cerrar</button>
+          </div>
+        </div>
       )}
 
       {busy && <div className="busy">Guardando…</div>}
