@@ -3,9 +3,12 @@
 import { useEffect, useState } from 'react'
 import { type CardDetail, type Pricing, type TcgplayerVariant, fetchCardDetail, imageUrl } from './api'
 import type { CardRef } from './store'
+import SlotActions from './SlotActions'
 
 interface Props {
   card: CardRef
+  /** Dónde está en el binder, ej. "Página 1 · casillero 3". */
+  where?: string
   onMove: () => void
   onChange: () => void
   onRemove: () => void
@@ -128,10 +131,10 @@ function Prices({ pricing }: { pricing?: Pricing | null }) {
   )
 }
 
-export default function CardDetailView({ card, onMove, onChange, onRemove, onClose }: Props) {
+export default function CardDetailView({ card, where, onMove, onChange, onRemove, onClose }: Props) {
   const [detail, setDetail] = useState<CardDetail | null>(null)
   const [error, setError] = useState(false)
-  const [confirmRemove, setConfirmRemove] = useState(false)
+  const [zoom, setZoom] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -143,31 +146,58 @@ export default function CardDetailView({ card, onMove, onChange, onRemove, onClo
     }
   }, [card.id, card.lang])
 
+  const name = detail?.name ?? card.name
   const image = detail?.image ?? card.image
   const est = estimate(detail?.pricing)
+  const number = detail?.localId ?? card.localId
   const setLine = [
     detail?.set?.name ?? card.setName,
-    (detail?.localId ?? card.localId) &&
-      `#${detail?.localId ?? card.localId}${detail?.set?.cardCount?.official ? `/${detail.set.cardCount.official}` : ''}`,
+    number && `#${number}${detail?.set?.cardCount?.official ? `/${detail.set.cardCount.official}` : ''}`,
   ]
     .filter(Boolean)
     .join(' · ')
 
+  // Lo más importante de un vistazo
+  const chips = [
+    detail?.hp != null && `PS ${detail.hp}`,
+    ...(detail?.types ?? []),
+    detail?.stage,
+    detail?.category && detail.category !== 'Pokémon' && detail.category,
+    detail?.rarity ?? card.rarity,
+  ].filter((c): c is string => !!c)
+
+  const attacks = detail?.attacks?.filter((a) => a.name) ?? []
+
   return (
-    <div className="sheet-screen detail" role="dialog" aria-label={`Detalle de ${card.name}`}>
+    <div className="sheet-screen detail" role="dialog" aria-label={`Detalle de ${name}`}>
       <header className="list-top">
-        <h1>{detail?.name ?? card.name}</h1>
+        <div className="list-title">
+          <h1>{name}</h1>
+          {where && <p>{where}</p>}
+        </div>
         <button className="done" onClick={onClose}>
           Cerrar
         </button>
       </header>
 
       <div className="detail-body">
-        {image ? (
-          <img className="detail-img" src={imageUrl(image, 'high')} alt={card.name} />
-        ) : (
-          <div className="noimg big">{card.name}</div>
-        )}
+        <div className="detail-hero">
+          {image ? (
+            <button className="detail-img-btn" onClick={() => setZoom(true)} aria-label="Ver la carta en grande">
+              <img className="detail-img" src={imageUrl(image, 'high')} alt={name} />
+            </button>
+          ) : (
+            <div className="noimg big">{name}</div>
+          )}
+          {setLine && <p className="detail-set">{setLine}</p>}
+          {chips.length > 0 && (
+            <ul className="chips" aria-label="Datos principales">
+              {chips.map((c, i) => (
+                <li key={i}>{c}</li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <section className="panel price-panel">
           <h2>Precio estimado</h2>
@@ -189,51 +219,59 @@ export default function CardDetailView({ card, onMove, onChange, onRemove, onClo
               )}
             </div>
           )}
-          {detail && <Prices pricing={detail.pricing} />}
+          {detail &&
+            (est.eur || est.usd ? (
+              <details className="market-more">
+                <summary>Ver precios por mercado</summary>
+                <Prices pricing={detail.pricing} />
+              </details>
+            ) : (
+              <Prices pricing={detail.pricing} />
+            ))}
         </section>
 
-        <section className="panel">
-          <h2>Detalle</h2>
-          <Row label="Set" value={setLine} />
-          <Row label="Rareza" value={detail?.rarity ?? card.rarity} />
-          <Row label="Categoría" value={detail?.category} />
-          <Row label="PS" value={detail?.hp} />
-          <Row label="Tipo" value={detail?.types?.join(', ')} />
-          <Row label="Etapa" value={detail?.stage} />
-          <Row label="Evoluciona de" value={detail?.evolveFrom} />
-          <Row
-            label="Debilidad"
-            value={detail?.weaknesses?.map((w) => `${w.type} ${w.value ?? ''}`.trim()).join(', ')}
-          />
-          <Row label="Retirada" value={detail?.retreat} />
-          <Row label="Regulación" value={detail?.regulationMark} />
-          <Row label="Ilustrador" value={detail?.illustrator} />
-
-          {detail?.attacks && detail.attacks.length > 0 && (
+        {attacks.length > 0 && (
+          <section className="panel">
+            <h2>{attacks.length === 1 ? 'Ataque' : 'Ataques'}</h2>
             <div className="attacks">
-              {detail.attacks.map((a, i) => (
+              {attacks.map((a, i) => (
                 <div className="attack" key={i}>
                   <div className="attack-head">
                     <strong>{a.name}</strong>
-                    {a.damage != null && a.damage !== '' && <span>{a.damage}</span>}
+                    {a.damage != null && a.damage !== '' && <span className="damage">{a.damage}</span>}
                   </div>
                   {a.cost && a.cost.length > 0 && <small className="muted">{a.cost.join(' · ')}</small>}
                   {a.effect && <p>{a.effect}</p>}
                 </div>
               ))}
             </div>
-          )}
-          {detail?.description && <p className="flavor">{detail.description}</p>}
-        </section>
+          </section>
+        )}
+
+        {detail && (
+          <section className="panel">
+            <h2>Más datos</h2>
+            <Row label="Evoluciona de" value={detail.evolveFrom} />
+            <Row
+              label="Debilidad"
+              value={detail.weaknesses?.map((w) => `${w.type} ${w.value ?? ''}`.trim()).join(', ')}
+            />
+            <Row label="Retirada" value={detail.retreat} />
+            <Row label="Regulación" value={detail.regulationMark} />
+            <Row label="Ilustrador" value={detail.illustrator} />
+            {detail.description && <p className="flavor">{detail.description}</p>}
+          </section>
+        )}
       </div>
 
-      <div className="actions detail-actions">
-        <button onClick={onMove}>Mover</button>
-        <button onClick={onChange}>Cambiar</button>
-        <button className="danger" onClick={() => (confirmRemove ? onRemove() : setConfirmRemove(true))}>
-          {confirmRemove ? '¿Seguro? Toca otra vez' : 'Quitar'}
-        </button>
-      </div>
+      <SlotActions name={name} onMove={onMove} onChange={onChange} onRemove={onRemove} />
+
+      {zoom && image && (
+        <div className="viewer" onClick={() => setZoom(false)} role="dialog" aria-label={`${name} en grande`}>
+          <img src={imageUrl(image, 'high')} alt={name} />
+          <p className="viewer-hint">Toca para cerrar</p>
+        </div>
+      )}
     </div>
   )
 }

@@ -17,6 +17,7 @@ import {
 } from './store'
 import { prepareCardImage } from './image'
 import CardDetailView from './CardDetailView'
+import SlotActions from './SlotActions'
 import SearchSheet from './SearchSheet'
 import { type ShareSlot, downloadImage, renderPage, shareImage } from './share'
 
@@ -45,7 +46,6 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
   const [searchTarget, setSearchTarget] = useState<Pos | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [confirmRemove, setConfirmRemove] = useState(false)
   const [shareImg, setShareImg] = useState<{ blob: Blob; url: string; page: number } | null>(null)
   const [sharing, setSharing] = useState(false)
 
@@ -172,7 +172,6 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
     // El click que llega al soltar un arrastre no abre nada
     if (justDragged.current) return
     const key = slotKey(id, p, s)
-    setConfirmRemove(false)
     if (moving) {
       await moveItem(moving, { page: p, slot: s })
       setMoving(null)
@@ -323,7 +322,6 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
     next.delete(key)
     setItems(next)
     setViewing(null)
-    setConfirmRemove(false)
   }
 
   // --- Páginas --------------------------------------------------------------
@@ -562,6 +560,7 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
       {viewing && isCard(viewingItem) && (
         <CardDetailView
           card={viewingItem}
+          where={`Página ${viewing.page + 1} · casillero ${viewing.slot + 1}`}
           onMove={() => {
             setMoving(viewing)
             setViewing(null)
@@ -576,33 +575,32 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
       )}
 
       {viewing && viewingItem && !isCard(viewingItem) && (
-        <div className="viewer" onClick={() => setViewing(null)}>
-          <img src={viewingSrc} alt="Carta" onClick={(e) => e.stopPropagation()} />
-          <div className="actions" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => {
-                setMoving(viewing)
-                setViewing(null)
-              }}
-            >
-              Mover
+        <div className="sheet-screen detail" role="dialog" aria-label="Foto de la carta">
+          <header className="list-top">
+            <div className="list-title">
+              <h1>Tu foto</h1>
+              <p>
+                Página {viewing.page + 1} · casillero {viewing.slot + 1}
+              </p>
+            </div>
+            <button className="done" onClick={() => setViewing(null)}>
+              Cerrar
             </button>
-            <button
-              onClick={() => {
-                setChoosing(viewing)
-                setViewing(null)
-              }}
-            >
-              Cambiar
-            </button>
-            <button
-              className="danger"
-              onClick={() => (confirmRemove ? removeItem(viewing) : setConfirmRemove(true))}
-            >
-              {confirmRemove ? '¿Seguro? Toca otra vez' : 'Quitar'}
-            </button>
-            <button onClick={() => setViewing(null)}>Cerrar</button>
+          </header>
+          <div className="detail-body photo-body">
+            <img className="detail-img photo" src={viewingSrc} alt="Foto de la carta" />
           </div>
+          <SlotActions
+            onMove={() => {
+              setMoving(viewing)
+              setViewing(null)
+            }}
+            onChange={() => {
+              setChoosing(viewing)
+              setViewing(null)
+            }}
+            onRemove={() => removeItem(viewing)}
+          />
         </div>
       )}
 
