@@ -2,7 +2,7 @@ import { fail, withUser } from '@/lib/api'
 
 // Trae imágenes de cartas desde nuestro dominio para poder dibujarlas en la imagen
 // que se comparte (el navegador no deja leer en un canvas imágenes de otros sitios).
-const ALLOWED = (host: string) => host === 'assets.tcgdex.net' || host.endsWith('.public.blob.vercel-storage.com')
+const ALLOWED = (host: string) => host === 'assets.tcgdex.net' || host === 'images.pokemontcg.io' || host.endsWith('.public.blob.vercel-storage.com')
 
 export async function GET(req: Request) {
   return withUser(async () => {

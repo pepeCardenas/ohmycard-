@@ -1,5 +1,6 @@
 // Cliente de la API pública de TCGdex (https://tcgdex.dev): gratis, sin clave y con cartas en español.
 
+import { cardImageUrl } from './cardImage'
 import { normalize, translateQuery } from './names'
 import type { CardRef } from './store'
 
@@ -41,7 +42,7 @@ interface CardFull extends CardBrief {
 }
 
 /** URL de imagen lista para usar. `image` es la URL base que devuelve la API. */
-export const imageUrl = (image: string, quality: 'low' | 'high') => `${image}/${quality}.webp`
+export const imageUrl = cardImageUrl
 
 /** Por qué campo se busca: nombre de la carta o ilustrador. */
 export type SearchBy = 'name' | 'illustrator'
@@ -135,7 +136,11 @@ const fallbackCache = new Map<string, Promise<string | undefined>>()
  * A algunas cartas les falta la imagen en un idioma (pasa mucho en español). La carta tiene el
  * mismo id en los otros idiomas, así que se usa la imagen de la primera versión que la tenga.
  */
-export function fallbackImage(id: string, lang: Lang): Promise<string | undefined> {
+export function fallbackImage(
+  id: string,
+  lang: Lang,
+  card?: { name: string; localId: string },
+): Promise<string | undefined> {
   const key = id
   let hit = fallbackCache.get(key)
   if (!hit) {
@@ -151,11 +156,43 @@ export function fallbackImage(id: string, lang: Lang): Promise<string | undefine
           // probar el siguiente idioma
         }
       }
-      return undefined
+      return card ? pokemonTcgImage(id, card.name, card.localId, lang).catch(() => undefined) : undefined
     })()
     fallbackCache.set(key, hit)
   }
   return hit
+}
+
+/** Id de set de TCGdex en el formato de pokemontcg.io: "sv02" → "sv2", "swsh12.5" → "swsh12pt5". */
+const ptcgSetId = (cardId: string, localId: string) =>
+  cardId
+    .slice(0, cardId.length - localId.length - 1)
+    .toLowerCase()
+    .replace(/\.5/g, 'pt5')
+    .replace(/([a-z])0+(\d)/g, '$1$2')
+
+/**
+ * Último recurso: la imagen en pokemontcg.io (sólo cartas en inglés). Se busca por nombre en
+ * inglés y número; si hay varias, se elige la del mismo set y si no se puede saber, ninguna
+ * (mejor sin imagen que con la de otra carta).
+ */
+async function pokemonTcgImage(id: string, name: string, localId: string, lang: Lang): Promise<string | undefined> {
+  const number = localId.replace(/^0+(?=\d)/, '')
+  let english = name
+  if (lang !== 'en') {
+    const t = await translateQuery(name, 'en', 1).catch(() => null)
+    if (t?.names.length) english = t.suffix ? `${t.names[0]} ${t.suffix}` : t.names[0]
+  }
+  const q = `name:"${english.replace(/"/g, '')}" number:${number}`
+  const params = new URLSearchParams({ q, select: 'id,set,images', pageSize: '20' })
+  const res = await fetch(`https://api.pokemontcg.io/v2/cards?${params}`)
+  if (!res.ok) return undefined
+  const { data } = (await res.json()) as { data?: { id: string; set: { id: string }; images?: { small?: string } }[] }
+  if (!data?.length) return undefined
+  const set = ptcgSetId(id, localId)
+  const match = data.find((c) => c.set.id.toLowerCase() === set) ?? (data.length === 1 ? data[0] : undefined)
+  const img = match?.images?.small
+  return img?.startsWith('https://images.pokemontcg.io/') ? img : undefined
 }
 
 /** Trae los datos completos de una carta para guardarla en el binder. */
@@ -173,7 +210,7 @@ export async function fetchCardRef(brief: CardBrief): Promise<CardRef> {
   } catch {
     // Sin detalle igual se guarda la carta con nombre e imagen.
   }
-  if (!ref.image) ref.image = await fallbackImage(brief.id, lang)
+  if (!ref.image) ref.image = await fallbackImage(brief.id, lang, brief)
   return ref
 }
 

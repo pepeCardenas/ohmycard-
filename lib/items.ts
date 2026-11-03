@@ -1,3 +1,4 @@
+import { cardImageUrl, isCardImage } from '@/src/cardImage'
 // Validación de lo que se guarda en un casillero o en una colección.
 
 /** Un casillero sólo puede tener una carta oficial o una foto, con campos conocidos. */
@@ -14,7 +15,7 @@ export function cleanItem(raw: unknown): Record<string, string | number> | null 
       const v = str(k)
       if (v) item[k] = v
     }
-    if (item.image && !item.image.startsWith('https://assets.tcgdex.net/')) delete item.image
+    if (item.image && !isCardImage(item.image)) delete item.image
     return item
   }
   if (r.kind === 'photo') {
@@ -32,7 +33,7 @@ export function cleanItem(raw: unknown): Record<string, string | number> | null 
 /** URL chica de la imagen de un casillero (carta oficial o foto). */
 export function thumb(data: unknown): string | null {
   const d = data as { kind?: string; image?: string; url?: string }
-  if (d?.kind === 'card') return d.image ? `${d.image}/low.webp` : null
+  if (d?.kind === 'card') return d.image ? cardImageUrl(d.image, 'low') : null
   if (d?.kind === 'photo') return d.url ?? null
   return null
 }
