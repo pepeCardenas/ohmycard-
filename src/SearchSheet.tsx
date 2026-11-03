@@ -38,6 +38,9 @@ export default function SearchSheet({ targetLabel, onAdd, onAddMany, onClose }: 
   const [by, setBy] = useState<SearchBy>('name')
   const [results, setResults] = useState<CardBrief[] | null>(null)
   const [loading, setLoading] = useState(false)
+  const [page, setPage] = useState(1)
+  const [more, setMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [adding, setAdding] = useState<string | null>(null)
 
@@ -61,8 +64,13 @@ export default function SearchSheet({ targetLabel, onAdd, onAddMany, onClose }: 
     const t = window.setTimeout(() => {
       setLoading(true)
       setError(null)
+      setPage(1)
+      setMore(false)
       searchCards(q, lang, ctrl.signal, by)
-        .then(setResults)
+        .then((r) => {
+          setResults(r.cards)
+          setMore(r.more)
+        })
         .catch((e) => {
           if ((e as Error).name !== 'AbortError') setError('No se pudo buscar. Revisa tu conexión.')
         })
@@ -73,6 +81,24 @@ export default function SearchSheet({ targetLabel, onAdd, onAddMany, onClose }: 
       ctrl.abort()
     }
   }, [query, lang, by])
+
+  const loadMore = async () => {
+    if (loadingMore || !results) return
+    setLoadingMore(true)
+    setError(null)
+    try {
+      const r = await searchCards(query.trim(), lang, undefined, by, page + 1)
+      const seen = new Set(results.map(keyOf))
+      const fresh = r.cards.filter((c) => !seen.has(keyOf(c)))
+      setResults([...results, ...fresh])
+      setPage(page + 1)
+      setMore(r.more && fresh.length > 0)
+    } catch {
+      setError('No se pudieron traer más cartas.')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   const toggle = (card: CardBrief) => {
     setSelected((prev) => {
@@ -208,6 +234,11 @@ export default function SearchSheet({ targetLabel, onAdd, onAddMany, onClose }: 
               </button>
             ))}
           </div>
+        )}
+        {results && results.length > 0 && more && !loading && (
+          <button className="load-more" onClick={loadMore} disabled={loadingMore}>
+            {loadingMore ? 'Buscando…' : 'Ver más cartas'}
+          </button>
         )}
       </div>
 
