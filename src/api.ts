@@ -4,13 +4,34 @@ import type { CardRef } from './store'
 
 const BASE = 'https://api.tcgdex.net/v2'
 
-export type Lang = 'es' | 'en'
+/** Idiomas de cartas que ofrece TCGdex. */
+export const LANGS = [
+  { code: 'es', label: 'Español' },
+  { code: 'en', label: 'English' },
+  { code: 'fr', label: 'Français' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'it', label: 'Italiano' },
+  { code: 'pt', label: 'Português' },
+  { code: 'ja', label: '日本語' },
+  { code: 'ko', label: '한국어' },
+  { code: 'zh-tw', label: '中文 (繁體)' },
+  { code: 'id', label: 'Bahasa Indonesia' },
+  { code: 'th', label: 'ไทย' },
+] as const
+
+export type Lang = (typeof LANGS)[number]['code']
+/** "any" busca en todos los idiomas a la vez. */
+export type LangChoice = Lang | 'any'
+
+export const isLang = (v: unknown): v is Lang => LANGS.some((l) => l.code === v)
 
 export interface CardBrief {
   id: string
   localId: string
   name: string
   image?: string
+  /** Idioma de la versión encontrada. */
+  lang: Lang
 }
 
 interface CardFull extends CardBrief {
@@ -21,21 +42,35 @@ interface CardFull extends CardBrief {
 /** URL de imagen lista para usar. `image` es la URL base que devuelve la API. */
 export const imageUrl = (image: string, quality: 'low' | 'high') => `${image}/${quality}.webp`
 
-export async function searchCards(name: string, lang: Lang, signal?: AbortSignal): Promise<CardBrief[]> {
+async function searchIn(name: string, lang: Lang, perPage: number, signal?: AbortSignal): Promise<CardBrief[]> {
   const params = new URLSearchParams({
     name: `like:${name}`,
     'pagination:page': '1',
-    'pagination:itemsPerPage': '60',
+    'pagination:itemsPerPage': String(perPage),
   })
   const res = await fetch(`${BASE}/${lang}/cards?${params}`, { signal })
   if (res.status === 404) return []
   if (!res.ok) throw new Error(`TCGdex respondió ${res.status}`)
-  const data = (await res.json()) as CardBrief[]
-  return Array.isArray(data) ? data : []
+  const data = (await res.json()) as Omit<CardBrief, 'lang'>[]
+  return Array.isArray(data) ? data.map((c) => ({ ...c, lang })) : []
+}
+
+/**
+ * Busca cartas por nombre. Con "any" consulta todos los idiomas en paralelo y junta
+ * los resultados (los idiomas que fallan se ignoran; si fallan todos, es un error).
+ */
+export async function searchCards(name: string, lang: LangChoice, signal?: AbortSignal): Promise<CardBrief[]> {
+  if (lang !== 'any') return searchIn(name, lang, 60, signal)
+  const settled = await Promise.allSettled(LANGS.map((l) => searchIn(name, l.code, 30, signal)))
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+  const ok = settled.filter((r): r is PromiseFulfilledResult<CardBrief[]> => r.status === 'fulfilled')
+  if (ok.length === 0) throw new Error('No se pudo buscar')
+  return ok.flatMap((r) => r.value)
 }
 
 /** Trae los datos completos de una carta para guardarla en el binder. */
-export async function fetchCardRef(brief: CardBrief, lang: Lang): Promise<CardRef> {
+export async function fetchCardRef(brief: CardBrief): Promise<CardRef> {
+  const lang = brief.lang
   const ref: CardRef = { kind: 'card', id: brief.id, lang, name: brief.name, image: brief.image, localId: brief.localId }
   try {
     const res = await fetch(`${BASE}/${lang}/cards/${encodeURIComponent(brief.id)}`)

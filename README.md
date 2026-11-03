@@ -6,7 +6,7 @@ Cada persona tiene su cuenta (mail y contraseña) y sus binders se guardan en la
 ## Funciones
 
 - **Binder 3x3**: páginas de 9 casilleros que se pasan deslizando. Toca un casillero vacío para buscar una carta oficial o subir una foto.
-- **Cartas oficiales**: búsqueda por nombre (en español o inglés) con la API gratuita de [TCGdex](https://tcgdex.dev).
+- **Cartas oficiales**: búsqueda por nombre en 11 idiomas o en "Cualquier idioma" a la vez con la API gratuita de [TCGdex](https://tcgdex.dev).
 - **Detalle y precio**: al tocar una carta oficial ves su información y el precio estimado en Cardmarket (EUR) y TCGplayer (USD).
 - **Varios binders**: toca el nombre del binder para crear, renombrar, borrar o cambiar de colección.
 - **Cuentas**: registro e inicio de sesión con mail y contraseña.
