@@ -22,6 +22,9 @@ import { type ShareSlot, downloadImage, renderPage, shareImage } from './share'
 
 type Pos = { page: number; slot: number }
 
+/** Carta que se está arrastrando: de dónde sale, dónde está el dedo y sobre qué casillero. */
+type Drag = { from: Pos; x: number; y: number; dx: number; dy: number; w: number; h: number; over: Pos | null }
+
 interface Props {
   binder: BinderMeta
   onChange: (meta: BinderMeta) => void
@@ -143,33 +146,169 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
 
   // --- Acciones sobre un casillero ------------------------------------------
 
+  /** Intercambia dos casilleros (si el destino está vacío, la carta simplemente se mueve). */
+  const moveItem = async (from: Pos, to: Pos) => {
+    const fromKey = slotKey(id, from.page, from.slot)
+    const toKey = slotKey(id, to.page, to.slot)
+    if (fromKey === toKey) return
+    const current = itemsRef.current
+    const a = current.get(fromKey)
+    const b = current.get(toKey)
+    try {
+      await swapSlots(id, from, to)
+    } catch {
+      setError('No se pudo mover la carta.')
+      return
+    }
+    const next = new Map(itemsRef.current)
+    if (b) next.set(fromKey, b)
+    else next.delete(fromKey)
+    if (a) next.set(toKey, a)
+    else next.delete(toKey)
+    setItems(next)
+  }
+
   const onSlotTap = async (p: number, s: number) => {
+    // El click que llega al soltar un arrastre no abre nada
+    if (justDragged.current) return
     const key = slotKey(id, p, s)
     setConfirmRemove(false)
     if (moving) {
-      const from = slotKey(id, moving.page, moving.slot)
-      if (from !== key) {
-        const a = items.get(from)
-        const b = items.get(key)
-        try {
-          await swapSlots(id, moving, { page: p, slot: s })
-        } catch {
-          setError('No se pudo mover la carta.')
-          setMoving(null)
-          return
-        }
-        const next = new Map(items)
-        if (b) next.set(from, b)
-        else next.delete(from)
-        if (a) next.set(key, a)
-        else next.delete(key)
-        setItems(next)
-      }
+      await moveItem(moving, { page: p, slot: s })
       setMoving(null)
       return
     }
     if (items.has(key)) setViewing({ page: p, slot: s })
     else setChoosing({ page: p, slot: s })
+  }
+
+  // --- Arrastrar cartas (mantener apretado, como los íconos del iPhone) -----
+
+  const [drag, setDrag] = useState<Drag | null>(null)
+  const dragRef = useRef<Drag | null>(null)
+  const justDragged = useRef(false)
+  const pageRef = useRef(page)
+  pageRef.current = page
+
+  const updateDrag = (d: Drag | null) => {
+    dragRef.current = d
+    setDrag(d)
+  }
+
+  const onSlotPointerDown = (e: React.PointerEvent<HTMLButtonElement>, p: number, s: number) => {
+    if (moving || e.button !== 0 || !itemsRef.current.has(slotKey(id, p, s))) return
+    const el = e.currentTarget
+    const rect = el.getBoundingClientRect()
+    const startX = e.clientX
+    const startY = e.clientY
+    const pointerId = e.pointerId
+    const isMouse = e.pointerType === 'mouse'
+    let active = false
+    let edgeTimer: ReturnType<typeof setTimeout> | null = null
+    let edgeSide = 0
+
+    const activate = (x: number, y: number) => {
+      active = true
+      navigator.vibrate?.(15)
+      updateDrag({
+        from: { page: p, slot: s },
+        x,
+        y,
+        dx: startX - rect.left,
+        dy: startY - rect.top,
+        w: rect.width,
+        h: rect.height,
+        over: null,
+      })
+    }
+
+    const holdTimer = isMouse ? null : setTimeout(() => activate(startX, startY), 380)
+
+    const clearEdge = () => {
+      if (edgeTimer) clearTimeout(edgeTimer)
+      edgeTimer = null
+      edgeSide = 0
+    }
+
+    // Cerca de un borde, pasa de página después de un momento (y agrega una al final si hace falta)
+    const checkEdge = (x: number) => {
+      const pager = pagerRef.current
+      if (!pager) return
+      const r = pager.getBoundingClientRect()
+      const side = x < r.left + 28 ? -1 : x > r.right - 28 ? 1 : 0
+      if (side === edgeSide) return
+      clearEdge()
+      edgeSide = side
+      if (!side) return
+      edgeTimer = setTimeout(function flip() {
+        const b = binderRef.current
+        const target = pageRef.current + side
+        if (target < 0) return
+        if (target >= b.pageCount) {
+          if (pageIsEmptyIn(pageRef.current, itemsRef.current)) return
+          onChange({ ...b, pageCount: b.pageCount + 1 })
+          setTimeout(() => goTo(target), 50)
+        } else goTo(target)
+        edgeTimer = setTimeout(flip, 900)
+      }, 550)
+    }
+
+    const slotAt = (x: number, y: number): Pos | null => {
+      const hit = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-slot]')
+      if (!hit) return null
+      return { page: Number(hit.dataset.page), slot: Number(hit.dataset.slot) }
+    }
+
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      if (!active) {
+        const moved = Math.hypot(ev.clientX - startX, ev.clientY - startY)
+        if (isMouse && moved > 6) activate(ev.clientX, ev.clientY)
+        else if (!isMouse && moved > 10) cleanup() // está deslizando la página, no arrastrando
+        return
+      }
+      const d = dragRef.current
+      if (!d) return
+      updateDrag({ ...d, x: ev.clientX, y: ev.clientY, over: slotAt(ev.clientX, ev.clientY) })
+      checkEdge(ev.clientX)
+    }
+
+    // Mientras se arrastra, que el dedo no desplace la página
+    const onTouchMove = (ev: TouchEvent) => {
+      if (active) ev.preventDefault()
+    }
+
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      const d = dragRef.current
+      const wasActive = active
+      cleanup()
+      if (!wasActive || !d) return
+      justDragged.current = true
+      setTimeout(() => (justDragged.current = false), 50)
+      const to = slotAt(ev.clientX, ev.clientY) ?? d.over
+      if (to) void moveItem(d.from, to)
+    }
+
+    const onCancel = (ev: PointerEvent) => {
+      if (ev.pointerId === pointerId) cleanup()
+    }
+
+    function cleanup() {
+      if (holdTimer) clearTimeout(holdTimer)
+      clearEdge()
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onCancel)
+      window.removeEventListener('touchmove', onTouchMove)
+      if (active) updateDrag(null)
+      active = false
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onCancel)
+    window.addEventListener('touchmove', onTouchMove, { passive: false })
   }
 
   const removeItem = async (t: Pos) => {
@@ -189,8 +328,9 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
 
   // --- Páginas --------------------------------------------------------------
 
-  const pageIsEmpty = (p: number) =>
-    Array.from({ length: SLOTS_PER_PAGE }, (_, s) => slotKey(id, p, s)).every((k) => !items.has(k))
+  const pageIsEmptyIn = (p: number, map: Map<string, SlotItem>) =>
+    Array.from({ length: SLOTS_PER_PAGE }, (_, s) => slotKey(id, p, s)).every((k) => !map.has(k))
+  const pageIsEmpty = (p: number) => pageIsEmptyIn(p, items)
 
   const addPage = () => {
     onChange({ ...binder, pageCount: binder.pageCount + 1 })
@@ -289,11 +429,19 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
                 const item = items.get(key)
                 const src = srcFor(key, 'low')
                 const isSource = moving?.page === p && moving.slot === s
+                const isLifted = drag?.from.page === p && drag.from.slot === s
+                const isOver = !isLifted && drag?.over?.page === p && drag.over.slot === s
                 return (
                   <button
                     key={s}
-                    className={`slot${item ? ' filled' : ''}${isSource ? ' source' : ''}${moving ? ' target' : ''}`}
+                    data-page={p}
+                    data-slot={s}
+                    className={`slot${item ? ' filled' : ''}${isSource ? ' source' : ''}${moving ? ' target' : ''}${
+                      drag ? ' dragging' : ''
+                    }${isLifted ? ' lifted' : ''}${isOver ? ' drop-over' : ''}`}
                     onClick={() => onSlotTap(p, s)}
+                    onPointerDown={(e) => onSlotPointerDown(e, p, s)}
+                    onContextMenu={(e) => e.preventDefault()}
                     aria-label={item ? `Carta en casillero ${s + 1}` : `Agregar carta en casillero ${s + 1}`}
                   >
                     {item ? (
@@ -312,6 +460,25 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
           </section>
         ))}
       </div>
+
+      {drag && (
+        <div
+          className="drag-ghost"
+          aria-hidden="true"
+          style={{
+            width: drag.w,
+            height: drag.h,
+            transform: `translate(${drag.x - drag.dx}px, ${drag.y - drag.dy}px) rotate(-3deg) scale(1.08)`,
+          }}
+        >
+          {(() => {
+            const key = slotKey(id, drag.from.page, drag.from.slot)
+            const item = items.get(key)
+            const src = srcFor(key, 'low')
+            return src ? <img src={src} alt="" draggable={false} /> : <span className="noimg">{isCard(item) ? item.name : ''}</span>
+          })()}
+        </div>
+      )}
 
       <footer className="bottom">
         <button className="nav" onClick={() => goTo(page - 1)} disabled={page === 0} aria-label="Página anterior">
