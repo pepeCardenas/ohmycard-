@@ -26,7 +26,8 @@ Cada persona tiene su cuenta (mail y contraseña) y sus binders se guardan en la
 | `TURSO_DATABASE_URL` | Dirección de la base (`libsql://...`) | Panel de Turso → tu base → Connect |
 | `TURSO_AUTH_TOKEN` | Token de acceso a la base | Panel de Turso → tu base → Create token |
 | `BETTER_AUTH_SECRET` | Clave para firmar las sesiones (32+ caracteres al azar) | Generarla con `openssl rand -base64 32` o en https://www.better-auth.com/docs/installation |
-| `BETTER_AUTH_URL` | Dirección pública de la app, ej. `https://ohmycard.vercel.app` | La URL de producción de Vercel |
+| `BETTER_AUTH_URL` | Dirección pública de la app (opcional en Vercel: si falta, se usa la de producción) | Vercel → tu proyecto → Domains |
+| `TRUSTED_ORIGINS` | Otras direcciones desde las que se puede iniciar sesión, separadas por coma (opcional) | Por ejemplo, un dominio propio |
 | `BLOB_READ_WRITE_TOKEN` | Guardar fotos en Vercel Blob (opcional) | Se agrega sola al crear un Blob Store en Vercel → Storage |
 
 ## Desarrollo local
