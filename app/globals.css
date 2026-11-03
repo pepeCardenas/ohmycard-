@@ -89,10 +89,25 @@ button {
   flex: 1;
 }
 
+.top-left {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.top-left .name {
+  min-height: 36px;
+  padding: 2px 0 0;
+  max-width: 100%;
+}
+
 .count {
-  flex: none;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .top-right {
@@ -242,14 +257,42 @@ button {
   opacity: 0.6;
 }
 
-.slot.target {
-  outline: 2px dashed var(--gold);
-  outline-offset: -2px;
+.plus {
+  transition: opacity 0.15s;
+}
+
+/* Modo mover: los vacíos se marcan como destino; las llenas se pueden intercambiar */
+.slot.target:not(.filled) {
+  border: 1.5px dashed var(--gold);
+  background: rgba(245, 197, 66, 0.08);
+}
+
+.slot.target:not(.filled) .plus {
+  color: var(--gold);
+  opacity: 0.9;
+}
+
+.slot.target.filled:not(.source) {
+  opacity: 0.75;
 }
 
 .slot.source {
   outline: 3px solid var(--gold);
-  opacity: 0.6;
+  outline-offset: -3px;
+  box-shadow: 0 0 18px rgba(245, 197, 66, 0.55);
+  animation: lift 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes lift {
+  to {
+    transform: translateY(-3px) scale(1.03);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot.source {
+    animation: none;
+  }
 }
 
 /* --- Barra inferior --- */
@@ -263,24 +306,87 @@ button {
 }
 
 .nav {
-  width: 48px;
-  height: 48px;
+  flex: none;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  font-size: 2rem;
+  font-size: 1.7rem;
   line-height: 1;
+  padding-bottom: 3px;
+  color: var(--text);
   background: var(--leather);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .nav:disabled {
-  opacity: 0.3;
+  opacity: 0.25;
 }
 
 .pageinfo {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  font-size: 0.95rem;
+  gap: 6px;
+}
+
+.dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 220px;
+}
+
+/* Área táctil de 24px con un punto chico adentro */
+.dot {
+  width: 18px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+}
+
+.dot::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--pocket-border);
+  transition: width 0.2s, background 0.2s;
+}
+
+.dot.has::before {
+  background: var(--muted);
+}
+
+.dot.on::before {
+  width: 16px;
+  background: var(--gold);
+}
+
+.page-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-num {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pill {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--pocket-border);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.pill:active {
+  background: var(--leather);
 }
 
 .link {
@@ -379,34 +485,6 @@ button {
 }
 
 /* --- Elegir qué poner en un casillero --- */
-.chooser {
-  width: min(100%, 360px);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 20px;
-  border-radius: 16px;
-  background: var(--leather);
-  text-align: center;
-}
-
-.chooser p {
-  margin: 0 0 6px;
-  font-weight: 600;
-}
-
-.chooser button {
-  padding: 14px;
-  border-radius: 12px;
-  background: var(--leather-edge);
-  font-weight: 600;
-}
-
-.chooser button.link {
-  background: none;
-  color: var(--muted);
-}
-
 .card-info {
   display: flex;
   flex-direction: column;
@@ -813,6 +891,38 @@ button {
   background: var(--danger);
   color: #1b1530;
   font-weight: 800;
+}
+
+.sheet-option.big {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  min-height: 62px;
+  text-align: left;
+}
+
+.sheet-option.big.primary {
+  background: var(--gold);
+  color: #1b1530;
+}
+
+.opt-icon {
+  font-size: 1.4rem;
+  width: 28px;
+  text-align: center;
+}
+
+.opt-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.opt-text small {
+  font-size: 0.8rem;
+  font-weight: 500;
+  opacity: 0.7;
 }
 
 .sheet-cancel {
