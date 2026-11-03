@@ -22,7 +22,14 @@ export async function GET() {
     const [row] = await db.select({ n: count() }).from(user)
     info.cuentas = row?.n ?? 0
   } catch (e) {
-    info.error = e instanceof Error ? e.message : String(e)
+    // La causa real (ej. token inválido) viene anidada en `cause`.
+    const parts: string[] = []
+    let cur: unknown = e
+    while (cur && parts.length < 4) {
+      parts.push(cur instanceof Error ? cur.message.split('\n')[0] : String(cur))
+      cur = cur instanceof Error ? cur.cause : undefined
+    }
+    info.error = parts.join(' ← ')
   }
   return Response.json(info, { headers: { 'cache-control': 'no-store' } })
 }
