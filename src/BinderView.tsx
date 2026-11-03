@@ -238,13 +238,19 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
   return (
     <div className="app">
       <header className="top">
-        <button className="name" onClick={onOpenList} aria-label="Cambiar de binder">
-          {binder.name} <span className="caret">▾</span>
-        </button>
-        <div className="top-right">
+        <div className="top-left">
+          <button className="name" onClick={onOpenList} aria-label="Cambiar de binder">
+            {binder.name} <span className="caret">▾</span>
+          </button>
           <span className="count">
-            {filled} {filled === 1 ? 'carta' : 'cartas'}
+            {!loaded
+              ? 'Cargando…'
+              : filled === 0
+                ? 'Toca un casillero para agregar tu primera carta'
+                : `${filled} ${filled === 1 ? 'carta' : 'cartas'} · ${binder.pageCount} ${binder.pageCount === 1 ? 'página' : 'páginas'}`}
           </span>
+        </div>
+        <div className="top-right">
           <button className="share-btn" onClick={openShare} disabled={sharing} aria-label="Compartir esta página">
             {sharing ? '…' : (
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
@@ -263,8 +269,8 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
       </header>
 
       {moving && (
-        <div className="banner">
-          Toca el casillero de destino
+        <div className="banner move-banner">
+          Toca dónde va la carta
           <button onClick={() => setMoving(null)}>Cancelar</button>
         </div>
       )}
@@ -312,18 +318,34 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
           ‹
         </button>
         <div className="pageinfo">
-          <span>
-            Página {page + 1} de {binder.pageCount}
-          </span>
-          {isLast && binder.pageCount > 1 && pageIsEmpty(page) ? (
-            <button className="link" onClick={removeLastPage}>
-              Quitar página
-            </button>
-          ) : (
-            <button className="link" onClick={addPage}>
-              + Agregar página
-            </button>
-          )}
+          {binder.pageCount <= 12 ? (
+            <div className="dots" role="tablist" aria-label="Páginas">
+              {Array.from({ length: binder.pageCount }, (_, p) => (
+                <button
+                  key={p}
+                  role="tab"
+                  aria-selected={p === page}
+                  aria-label={`Página ${p + 1}`}
+                  className={`dot${p === page ? ' on' : ''}${pageIsEmpty(p) ? '' : ' has'}`}
+                  onClick={() => goTo(p)}
+                />
+              ))}
+            </div>
+          ) : null}
+          <div className="page-row">
+            <span className="page-num">
+              Página {page + 1} de {binder.pageCount}
+            </span>
+            {isLast && binder.pageCount > 1 && pageIsEmpty(page) ? (
+              <button className="pill" onClick={removeLastPage}>
+                − Quitar
+              </button>
+            ) : (
+              <button className="pill" onClick={addPage}>
+                + Página
+              </button>
+            )}
+          </div>
         </div>
         <button className="nav" onClick={() => goTo(page + 1)} disabled={isLast} aria-label="Página siguiente">
           ›
@@ -331,27 +353,39 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
       </footer>
 
       {choosing && (
-        <div className="viewer" onClick={() => setChoosing(null)}>
-          <div className="chooser" onClick={(e) => e.stopPropagation()}>
-            <p>¿Qué quieres poner en este casillero?</p>
+        <div className="viewer action-backdrop" onClick={() => setChoosing(null)}>
+          <div className="action-sheet" role="dialog" aria-label="Agregar carta" onClick={(e) => e.stopPropagation()}>
+            <p className="sheet-title">Agregar carta</p>
+            <p className="sheet-text">
+              Página {choosing.page + 1} · casillero {choosing.slot + 1}
+            </p>
             <button
-              className="primary"
+              className="sheet-option big primary"
               onClick={() => {
                 setSearchTarget(choosing)
                 setChoosing(null)
               }}
             >
-              Buscar carta oficial
+              <span className="opt-icon" aria-hidden="true">🔍</span>
+              <span className="opt-text">
+                Buscar carta oficial
+                <small>Por nombre, en cualquier idioma</small>
+              </span>
             </button>
             <button
+              className="sheet-option big"
               onClick={() => {
                 pickPhoto(choosing)
                 setChoosing(null)
               }}
             >
-              Subir foto
+              <span className="opt-icon" aria-hidden="true">📷</span>
+              <span className="opt-text">
+                Subir foto
+                <small>De tu carta o de la galería</small>
+              </span>
             </button>
-            <button className="link" onClick={() => setChoosing(null)}>
+            <button className="sheet-cancel" onClick={() => setChoosing(null)}>
               Cancelar
             </button>
           </div>
