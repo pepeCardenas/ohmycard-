@@ -24,15 +24,32 @@ export interface CardRef {
   rarity?: string
 }
 
-/** Foto subida por el usuario. */
+/** Foto subida por el usuario. Puede ocupar 1, 2 (horizontal o vertical) o 4 casilleros. */
 export interface PhotoRef {
   kind: 'photo'
   url: string
+  /** Casilleros de ancho y de alto (1 o 2) a partir del casillero donde está guardada. */
+  cols?: 1 | 2
+  rows?: 1 | 2
 }
 
 export type SlotItem = CardRef | PhotoRef
 
 export const isCard = (item: SlotItem | undefined): item is CardRef => item?.kind === 'card'
+
+/** Cuántos casilleros ocupa un elemento (las cartas siempre 1). */
+export const spanOf = (item: SlotItem | undefined) =>
+  item?.kind === 'photo' ? { cols: item.cols ?? 1, rows: item.rows ?? 1 } : { cols: 1, rows: 1 }
+
+/** Casilleros (0-8) de un bloque que empieza en `slot`, o null si se sale de la página 3x3. */
+export function blockCells(slot: number, cols: number, rows: number): number[] | null {
+  const c = slot % 3
+  const r = Math.floor(slot / 3)
+  if (c + cols > 3 || r + rows > 3) return null
+  const cells: number[] = []
+  for (let dr = 0; dr < rows; dr++) for (let dc = 0; dc < cols; dc++) cells.push((r + dr) * 3 + c + dc)
+  return cells
+}
 
 export const slotKey = (binderId: string, page: number, slot: number) => `${binderId}:${page}:${slot}`
 

@@ -20,7 +20,7 @@ function validPos(page: unknown, s: unknown): page is number {
 }
 
 /** Un casillero sólo puede tener una carta oficial o una foto, con campos conocidos. */
-function cleanItem(raw: unknown): Record<string, string> | null {
+function cleanItem(raw: unknown): Record<string, string | number> | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
   const str = (k: string, max = 300) => (typeof r[k] === 'string' ? (r[k] as string).slice(0, max) : undefined)
@@ -39,9 +39,28 @@ function cleanItem(raw: unknown): Record<string, string> | null {
   if (r.kind === 'photo') {
     const url = str('url', 500)
     if (!url || !(url.startsWith('/api/photos/') || url.startsWith('https://'))) return null
-    return { kind: 'photo', url }
+    const item: Record<string, string | number> = { kind: 'photo', url }
+    // Fotos grandes: 2 casilleros horizontal o vertical, o 2x2
+    if (r.cols === 2) item.cols = 2
+    if (r.rows === 2) item.rows = 2
+    return item
   }
   return null
+}
+
+const spanOf = (data: unknown) => {
+  const d = (data ?? {}) as { kind?: string; cols?: number; rows?: number }
+  return d.kind === 'photo' ? { cols: d.cols === 2 ? 2 : 1, rows: d.rows === 2 ? 2 : 1 } : { cols: 1, rows: 1 }
+}
+
+/** Casilleros que ocupa un bloque, o null si se sale de la página 3x3. */
+function blockCells(s: number, cols: number, rows: number): number[] | null {
+  const c = s % 3
+  const r = Math.floor(s / 3)
+  if (c + cols > 3 || r + rows > 3) return null
+  const cells: number[] = []
+  for (let dr = 0; dr < rows; dr++) for (let dc = 0; dc < cols; dc++) cells.push((r + dr) * 3 + c + dc)
+  return cells
 }
 
 export async function GET(_req: Request, { params }: Ctx) {
@@ -63,6 +82,20 @@ export async function PUT(req: Request, { params }: Ctx) {
     if (!validPos(body.page, body.slot)) return fail('Casillero inválido', 400)
     const item = cleanItem(body.item)
     if (!item) return fail('Contenido inválido', 400)
+    const span = spanOf(item)
+    if (span.cols > 1 || span.rows > 1) {
+      const cells = blockCells(body.slot!, span.cols, span.rows)
+      if (!cells) return fail('La foto no entra en la página', 400)
+      // Los otros casilleros que tapa tienen que estar libres
+      const others = await db
+        .select()
+        .from(slot)
+        .where(and(eq(slot.binderId, id), eq(slot.page, body.page)))
+      const busy = others.some(
+        (o) => o.slot !== body.slot && (blockCells(o.slot, spanOf(o.data).cols, spanOf(o.data).rows) ?? [o.slot]).some((c) => cells.includes(c)),
+      )
+      if (busy) return fail('No hay lugar para la foto ahí', 409)
+    }
     await db
       .insert(slot)
       .values({ binderId: id, page: body.page, slot: body.slot!, data: item })
@@ -102,6 +135,9 @@ export async function POST(req: Request, { params }: Ctx) {
       and(eq(slot.binderId, id), eq(slot.page, p.page!), eq(slot.slot, p.slot!))
     const [a] = await db.select().from(slot).where(at(from))
     const [b] = await db.select().from(slot).where(at(to))
+    const fits = (row: typeof a | undefined, dest: { slot?: number }) =>
+      !row || !!blockCells(dest.slot!, spanOf(row.data).cols, spanOf(row.data).rows)
+    if (!fits(a, to) || !fits(b, from)) return fail('No hay lugar para la foto ahí', 409)
     await db.batch([
       db.delete(slot).where(at(from)),
       db.delete(slot).where(at(to)),

@@ -6,6 +6,11 @@ export interface ShareSlot {
   src?: string
   /** Nombre para mostrar si no hay imagen. */
   name?: string
+  /** Casilleros que ocupa (fotos grandes). */
+  cols?: number
+  rows?: number
+  /** Tapado por una foto grande de otro casillero: no se dibuja. */
+  covered?: boolean
 }
 
 const W = 1080
@@ -88,9 +93,16 @@ export async function renderPage(binderName: string, page: number, pageCount: nu
   ctx.fill()
 
   slots.forEach((slot, i) => {
+    if (slot.covered) return
     const x = sx + innerPad + (i % 3) * (cw + GAP)
     const y = sy + innerPad + Math.floor(i / 3) * (ch + GAP)
+    const cols = slot.cols ?? 1
+    const rows = slot.rows ?? 1
     const img = images[i]
+    drawSlot(slot, img, x, y, cw * cols + GAP * (cols - 1), ch * rows + GAP * (rows - 1))
+  })
+
+  function drawSlot(slot: ShareSlot, img: HTMLImageElement | null, x: number, y: number, cw: number, ch: number) {
     ctx.save()
     roundedRect(ctx, x, y, cw, ch, 14)
     if (img) {
@@ -115,7 +127,7 @@ export async function renderPage(binderName: string, page: number, pageCount: nu
       }
     }
     ctx.restore()
-  })
+  }
 
   // Firma
   ctx.fillStyle = '#f5c542'

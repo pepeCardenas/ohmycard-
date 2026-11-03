@@ -1432,3 +1432,60 @@ button {
   color: var(--muted);
   font-size: 0.85rem;
 }
+
+/* --- Fotos grandes (2 o 4 casilleros) --- */
+.viewer .action-sheet .size-photo {
+  align-self: center;
+  max-height: 120px;
+  max-width: 60%;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.size-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.size-option {
+  min-height: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--leather-edge);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.size-option small {
+  margin-top: -6px;
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.size-option:disabled {
+  opacity: 0.45;
+}
+
+.mini-sheet {
+  display: grid;
+  grid-template-columns: repeat(3, 12px);
+  grid-template-rows: repeat(3, 16px);
+  gap: 3px;
+}
+
+.mini-sheet span {
+  border-radius: 2px;
+  background: var(--pocket-border);
+}
+
+.mini-sheet span.on {
+  background: var(--gold);
+}

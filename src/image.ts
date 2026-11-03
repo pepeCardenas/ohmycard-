@@ -1,9 +1,10 @@
 // Reduce la foto antes de guardarla: las fotos del celular pesan varios MB.
-const MAX_HEIGHT = 1000
+// Lado más largo: alcanza para una foto que ocupe 2x2 casilleros.
+const MAX_SIDE = 1400
 
 export async function prepareCardImage(file: File): Promise<Blob> {
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
-  const scale = Math.min(1, MAX_HEIGHT / bitmap.height)
+  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height))
   const w = Math.round(bitmap.width * scale)
   const h = Math.round(bitmap.height * scale)
   const canvas = document.createElement('canvas')
