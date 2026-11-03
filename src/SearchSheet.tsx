@@ -34,7 +34,7 @@ function MissingImage({ card }: { card: CardBrief }) {
   const [src, setSrc] = useState<string | null | undefined>(undefined)
   useEffect(() => {
     let alive = true
-    fallbackImage(card.id, card.lang).then((img) => alive && setSrc(img ?? null))
+    fallbackImage(card.id, card.lang, card).then((img) => alive && setSrc(img ?? null))
     return () => {
       alive = false
     }
