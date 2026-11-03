@@ -399,7 +399,11 @@ button {
 /* --- Visor de carta --- */
 .viewer {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100vh;
+  height: 100dvh;
   z-index: 10;
   background: rgba(10, 6, 24, 0.92);
   display: flex;
@@ -501,7 +505,13 @@ button {
 /* --- Pantallas completas (búsqueda, lista de binders) --- */
 .sheet-screen {
   position: fixed;
-  inset: 0;
+  /* En la app instalada en iPhone, "inset: 0" queda corto (le resta la barra de estado):
+     el alto se fija con dvh, igual que la pantalla del binder. */
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100vh;
+  height: 100dvh;
   z-index: 15;
   display: flex;
   flex-direction: column;
