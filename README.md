@@ -24,8 +24,8 @@ Cada persona tiene su cuenta (mail y contraseña) y sus binders se guardan en la
 
 | Variable | Para qué | Dónde se consigue |
 | --- | --- | --- |
-| `TURSO_DATABASE_URL` | Dirección de la base (`libsql://...`) | Panel de Turso → tu base → Connect |
-| `TURSO_AUTH_TOKEN` | Token de acceso a la base | Panel de Turso → tu base → Create token |
+| `DATABASE_URL` | Dirección de una base **fija** de Turso (`libsql://...`) | Panel de Turso → tu base → Connect |
+| `DATABASE_AUTH_TOKEN` | Token de acceso a esa base | Panel de Turso → tu base → Create token |
 | `BETTER_AUTH_SECRET` | Clave para firmar las sesiones (32+ caracteres al azar) | Generarla con `openssl rand -base64 32` o en https://www.better-auth.com/docs/installation |
 | `BETTER_AUTH_URL` | Dirección pública de la app (opcional en Vercel: si falta, se usa la de producción) | Vercel → tu proyecto → Domains |
 | `TRUSTED_ORIGINS` | Otras direcciones desde las que se puede iniciar sesión, separadas por coma (opcional) | Por ejemplo, un dominio propio |
@@ -38,3 +38,5 @@ npm install
 cp .env.example .env.local   # completar BETTER_AUTH_SECRET; sin Turso usa un archivo local.db
 npm run dev
 ```
+
+> La integración de Turso en Vercel carga `TURSO_DATABASE_URL` con una base nueva por cada deploy (host `dpl-...`), así que las cuentas se pierden en cada deploy. Usá `DATABASE_URL` y `DATABASE_AUTH_TOKEN` con una base fija; tienen prioridad sobre `TURSO_*`. `/api/health` muestra qué base usa cada deploy.
