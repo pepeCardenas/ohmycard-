@@ -52,10 +52,11 @@ async function searchIn(
   perPage: number,
   signal?: AbortSignal,
   by: SearchBy = 'name',
+  page = 1,
 ): Promise<CardBrief[]> {
   const params = new URLSearchParams({
     [by]: `like:${name}`,
-    'pagination:page': '1',
+    'pagination:page': String(page),
     'pagination:itemsPerPage': String(perPage),
   })
   const res = await fetch(`${BASE}/${lang}/cards?${params}`, { signal })
@@ -69,13 +70,20 @@ async function searchIn(
  * Busca en un idioma probando el nombre traducido del Pokémon (si se reconoce) y lo
  * que escribió el usuario, sin repetir cartas.
  */
-async function searchTranslated(query: string, lang: Lang, perPage: number, signal?: AbortSignal): Promise<CardBrief[]> {
+async function searchTranslated(
+  query: string,
+  lang: Lang,
+  perPage: number,
+  signal?: AbortSignal,
+  page = 1,
+): Promise<SearchPage> {
   const t = await translateQuery(query, lang).catch(() => null)
   const terms = [...new Set([...(t?.names ?? []), ...(t?.exact ? [] : [query])])]
   const per = Math.max(10, Math.ceil(perPage / terms.length))
-  const settled = await Promise.allSettled(terms.map((term) => searchIn(term, lang, per, signal)))
+  const settled = await Promise.allSettled(terms.map((term) => searchIn(term, lang, per, signal, 'name', page)))
   const ok = settled.filter((r): r is PromiseFulfilledResult<CardBrief[]> => r.status === 'fulfilled')
   if (ok.length === 0) throw (settled[0] as PromiseRejectedResult).reason
+  const more = ok.some((r) => r.value.length >= per)
   const seen = new Set<string>()
   let cards = ok.flatMap((r) => r.value).filter((c) => !seen.has(c.id) && seen.add(c.id))
   if (t?.suffix) {
@@ -83,30 +91,40 @@ async function searchTranslated(query: string, lang: Lang, perPage: number, sign
     const withSuffix = cards.filter((c) => normalize(c.name).includes(t.suffix))
     if (withSuffix.length) cards = withSuffix
   }
-  return cards
+  return { cards, more }
+}
+
+/** Una página de resultados; `more` indica si puede haber más. */
+export interface SearchPage {
+  cards: CardBrief[]
+  more: boolean
 }
 
 /**
- * Busca cartas por nombre. El nombre del Pokémon se traduce solo al idioma de las
- * cartas, así "Sylveon" encuentra ニンフィア en japonés. Con "any" consulta todos los
- * idiomas en paralelo y junta los resultados (los idiomas que fallan se ignoran; si
- * fallan todos, es un error).
+ * Busca cartas por nombre o ilustrador, de a páginas (`page` empieza en 1). El nombre del
+ * Pokémon se traduce solo al idioma de las cartas, así "Sylveon" encuentra ニンフィア en
+ * japonés. Con "any" consulta todos los idiomas en paralelo y junta los resultados (los
+ * idiomas que fallan se ignoran; si fallan todos, es un error).
  */
 export async function searchCards(
   name: string,
   lang: LangChoice,
   signal?: AbortSignal,
   by: SearchBy = 'name',
-): Promise<CardBrief[]> {
+  page = 1,
+): Promise<SearchPage> {
   // Los nombres de ilustradores no se traducen: se buscan tal cual en cada idioma.
-  const one = (l: Lang, perPage: number) =>
-    by === 'illustrator' ? searchIn(name, l, perPage, signal, 'illustrator') : searchTranslated(name, l, perPage, signal)
+  const one = async (l: Lang, perPage: number): Promise<SearchPage> => {
+    if (by !== 'illustrator') return searchTranslated(name, l, perPage, signal, page)
+    const cards = await searchIn(name, l, perPage, signal, 'illustrator', page)
+    return { cards, more: cards.length >= perPage }
+  }
   if (lang !== 'any') return one(lang, 60)
   const settled = await Promise.allSettled(LANGS.map((l) => one(l.code, 30)))
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-  const ok = settled.filter((r): r is PromiseFulfilledResult<CardBrief[]> => r.status === 'fulfilled')
+  const ok = settled.filter((r): r is PromiseFulfilledResult<SearchPage> => r.status === 'fulfilled')
   if (ok.length === 0) throw new Error('No se pudo buscar')
-  return ok.flatMap((r) => r.value)
+  return { cards: ok.flatMap((r) => r.value.cards), more: ok.some((r) => r.value.more) }
 }
 
 /** Trae los datos completos de una carta para guardarla en el binder. */
