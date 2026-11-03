@@ -5,6 +5,8 @@ import { imageUrl } from './api'
 import {
   SLOTS_PER_PAGE,
   type BinderMeta,
+  blockCells,
+  spanOf,
   type CardRef,
   type SlotItem,
   deleteSlot,
@@ -32,6 +34,16 @@ interface Props {
   onOpenList: () => void
 }
 
+type Size = { cols: 1 | 2; rows: 1 | 2 }
+
+/** Tamaños posibles para una foto. */
+const SIZES: { size: Size; label: string }[] = [
+  { size: { cols: 1, rows: 1 }, label: '1 casillero' },
+  { size: { cols: 2, rows: 1 }, label: '2 horizontal' },
+  { size: { cols: 1, rows: 2 }, label: '2 vertical' },
+  { size: { cols: 2, rows: 2 }, label: '4 casilleros' },
+]
+
 const toIndex = (p: Pos) => p.page * SLOTS_PER_PAGE + p.slot
 const toPos = (i: number): Pos => ({ page: Math.floor(i / SLOTS_PER_PAGE), slot: i % SLOTS_PER_PAGE })
 
@@ -48,6 +60,7 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [shareImg, setShareImg] = useState<{ blob: Blob; url: string; page: number } | null>(null)
   const [sharing, setSharing] = useState(false)
+  const [sizing, setSizing] = useState<{ file: File; target: Pos; preview: string } | null>(null)
 
   const pagerRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -85,11 +98,44 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
     setPage(Math.round(el.scrollLeft / el.clientWidth))
   }
 
-  /** Siguiente casillero vacío a partir de `from` (incluido). */
+  /** Para cada casillero de una página: en qué casillero está guardado lo que lo ocupa (null si está libre). */
+  const ownersOf = (p: number, map: Map<string, SlotItem>) => {
+    const owners: (number | null)[] = Array(SLOTS_PER_PAGE).fill(null)
+    for (let s = 0; s < SLOTS_PER_PAGE; s++) {
+      const item = map.get(slotKey(id, p, s))
+      if (!item) continue
+      const { cols, rows } = spanOf(item)
+      for (const c of blockCells(s, cols, rows) ?? [s]) owners[c] = s
+    }
+    return owners
+  }
+
+  /** Siguiente casillero libre a partir de `from` (incluido), contando los que tapan las fotos grandes. */
   const nextEmpty = (from: number, map: Map<string, SlotItem>) => {
     let i = from
-    while (map.has(slotKey(id, toPos(i).page, toPos(i).slot))) i++
+    while (ownersOf(toPos(i).page, map)[toPos(i).slot] !== null) i++
     return i
+  }
+
+  /**
+   * Dónde empezar un bloque de `size` que incluya el casillero `target` y sólo use casilleros libres
+   * (o los de `ignore`, que se va a reemplazar o mover). Null si no entra.
+   */
+  const findPlacement = (target: Pos, size: Size, map: Map<string, SlotItem>, ignore?: number) => {
+    const owners = ownersOf(target.page, map)
+    const col = target.slot % 3
+    const row = Math.floor(target.slot / 3)
+    for (let dr = 0; dr < size.rows; dr++) {
+      for (let dc = 0; dc < size.cols; dc++) {
+        const c = col - dc
+        const r = row - dr
+        if (c < 0 || r < 0) continue
+        const anchor = r * 3 + c
+        const cells = blockCells(anchor, size.cols, size.rows)
+        if (cells && cells.every((x) => owners[x] === null || owners[x] === ignore)) return anchor
+      }
+    }
+    return null
   }
 
   /** Guarda un elemento en un casillero, agregando páginas si hace falta. */
@@ -112,6 +158,11 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
     e.target.value = ''
     const start = photoTarget.current
     if (!start || files.length === 0) return
+    // Una sola foto: primero se elige el tamaño
+    if (files.length === 1) {
+      setSizing({ file: files[0], target: start, preview: URL.createObjectURL(files[0]) })
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -132,6 +183,47 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
     }
   }
 
+  /** Casillero que se reemplaza al poner algo en `target` (si ya tenía algo guardado ahí). */
+  const replaced = (target: Pos, map: Map<string, SlotItem>) =>
+    map.has(slotKey(id, target.page, target.slot)) ? target.slot : undefined
+
+  const closeSizing = () => {
+    if (sizing) URL.revokeObjectURL(sizing.preview)
+    setSizing(null)
+  }
+
+  const uploadSized = async (size: Size) => {
+    if (!sizing) return
+    const { file, target } = sizing
+    const map = itemsRef.current
+    const anchor = findPlacement(target, size, map, replaced(target, map))
+    if (anchor === null) return
+    closeSizing()
+    setBusy(true)
+    setError(null)
+    try {
+      const next = new Map(map)
+      const photo = await uploadPhoto(await prepareCardImage(file))
+      const big = size.cols > 1 || size.rows > 1
+      // Si la foto grande empieza en otro casillero, el elegido queda libre
+      if (anchor !== target.slot && next.has(slotKey(id, target.page, target.slot))) {
+        await deleteSlot(id, target.page, target.slot)
+        next.delete(slotKey(id, target.page, target.slot))
+      }
+      await place(
+        { page: target.page, slot: anchor },
+        big ? { ...photo, ...(size.cols > 1 && { cols: 2 }), ...(size.rows > 1 && { rows: 2 }) } : photo,
+        next,
+      )
+      setItems(next)
+      setViewing(null)
+    } catch {
+      setError('No se pudo cargar la foto. Prueba con JPG o PNG.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // --- Agregar cartas oficiales ---------------------------------------------
 
   const addCard = async (card: CardRef) => {
@@ -147,13 +239,30 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
   // --- Acciones sobre un casillero ------------------------------------------
 
   /** Intercambia dos casilleros (si el destino está vacío, la carta simplemente se mueve). */
-  const moveItem = async (from: Pos, to: Pos) => {
+  const moveItem = async (from: Pos, target: Pos) => {
+    let to = target
     const fromKey = slotKey(id, from.page, from.slot)
-    const toKey = slotKey(id, to.page, to.slot)
-    if (fromKey === toKey) return
+    if (fromKey === slotKey(id, to.page, to.slot)) return
     const current = itemsRef.current
     const a = current.get(fromKey)
-    const b = current.get(toKey)
+    const sa = spanOf(a)
+    // Foto grande: va a un lugar libre que incluya el casillero de destino
+    if (a && (sa.cols > 1 || sa.rows > 1)) {
+      const anchor = findPlacement(to, sa as Size, current, to.page === from.page ? from.slot : undefined)
+      if (anchor === null) {
+        setError('No hay lugar libre para esa foto ahí.')
+        return
+      }
+      to = { page: to.page, slot: anchor }
+      if (to.page === from.page && to.slot === from.slot) return
+    }
+    const b = current.get(slotKey(id, to.page, to.slot))
+    const sb = spanOf(b)
+    if (b && (sb.cols > 1 || sb.rows > 1)) {
+      setError('Para cambiar de lugar una foto grande, arrástrala a ella.')
+      return
+    }
+    const destKey = slotKey(id, to.page, to.slot)
     try {
       await swapSlots(id, from, to)
     } catch {
@@ -163,8 +272,8 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
     const next = new Map(itemsRef.current)
     if (b) next.set(fromKey, b)
     else next.delete(fromKey)
-    if (a) next.set(toKey, a)
-    else next.delete(toKey)
+    if (a) next.set(destKey, a)
+    else next.delete(destKey)
     setItems(next)
   }
 
@@ -349,10 +458,12 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
     const p = page
     setSharing(true)
     try {
+      const owners = ownersOf(p, items)
       const slots: ShareSlot[] = Array.from({ length: SLOTS_PER_PAGE }, (_, s) => {
         const key = slotKey(id, p, s)
         const item = items.get(key)
-        return { src: srcFor(key, 'high'), name: isCard(item) ? item.name : undefined }
+        if (owners[s] !== null && owners[s] !== s) return { covered: true }
+        return { src: srcFor(key, 'high'), name: isCard(item) ? item.name : undefined, ...spanOf(item) }
       })
       const blob = await renderPage(binder.name, p, binder.pageCount, slots)
       setShareImg({ blob, url: URL.createObjectURL(blob), page: p })
@@ -422,9 +533,15 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
         {Array.from({ length: binder.pageCount }, (_, p) => (
           <section className="page" key={p} aria-label={`Página ${p + 1}`}>
             <div className="sheet">
-              {Array.from({ length: SLOTS_PER_PAGE }, (_, s) => {
+              {(() => {
+                const owners = ownersOf(p, items)
+                return Array.from({ length: SLOTS_PER_PAGE }, (_, s) => {
+                // Casillero tapado por una foto grande: se dibuja como parte de esa foto
+                if (owners[s] !== null && owners[s] !== s) return null
                 const key = slotKey(id, p, s)
                 const item = items.get(key)
+                const span = spanOf(item)
+                const big = span.cols > 1 || span.rows > 1
                 const src = srcFor(key, 'low')
                 const isSource = moving?.page === p && moving.slot === s
                 const isLifted = drag?.from.page === p && drag.from.slot === s
@@ -434,7 +551,11 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
                     key={s}
                     data-page={p}
                     data-slot={s}
-                    className={`slot${item ? ' filled' : ''}${isSource ? ' source' : ''}${moving ? ' target' : ''}${
+                    style={{
+                      gridColumn: `${(s % 3) + 1} / span ${span.cols}`,
+                      gridRow: `${Math.floor(s / 3) + 1} / span ${span.rows}`,
+                    }}
+                    className={`slot${item ? ' filled' : ''}${big ? ' big' : ''}${isSource ? ' source' : ''}${moving ? ' target' : ''}${
                       drag ? ' dragging' : ''
                     }${isLifted ? ' lifted' : ''}${isOver ? ' drop-over' : ''}`}
                     onClick={() => onSlotTap(p, s)}
@@ -453,7 +574,8 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
                     )}
                   </button>
                 )
-              })}
+                })
+              })()}
             </div>
           </section>
         ))}
@@ -601,6 +723,40 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
             }}
             onRemove={() => removeItem(viewing)}
           />
+        </div>
+      )}
+
+      {sizing && (
+        <div className="viewer action-backdrop" onClick={closeSizing}>
+          <div className="action-sheet" role="dialog" aria-label="Tamaño de la foto" onClick={(e) => e.stopPropagation()}>
+            <p className="sheet-title">¿Cuántos casilleros ocupa?</p>
+            <img className="size-photo" src={sizing.preview} alt="" />
+            <div className="size-grid">
+              {SIZES.map(({ size, label }) => {
+                const anchor = findPlacement(sizing.target, size, items, replaced(sizing.target, items))
+                const cells = anchor === null ? [] : (blockCells(anchor, size.cols, size.rows) ?? [])
+                return (
+                  <button
+                    key={label}
+                    className="size-option"
+                    disabled={anchor === null}
+                    onClick={() => uploadSized(size)}
+                  >
+                    <span className="mini-sheet" aria-hidden="true">
+                      {Array.from({ length: SLOTS_PER_PAGE }, (_, c) => (
+                        <span key={c} className={cells.includes(c) ? 'on' : ''} />
+                      ))}
+                    </span>
+                    {label}
+                    {anchor === null && <small>No hay lugar</small>}
+                  </button>
+                )
+              })}
+            </div>
+            <button className="sheet-cancel" onClick={closeSizing}>
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 
