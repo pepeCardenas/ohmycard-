@@ -127,6 +127,37 @@ export async function searchCards(
   return { cards: ok.flatMap((r) => r.value.cards), more: ok.some((r) => r.value.more) }
 }
 
+/** Idiomas donde se busca la imagen de una carta que no la tiene en el suyo. */
+const IMAGE_FALLBACK: Lang[] = ['en', 'fr', 'de', 'it', 'pt']
+const fallbackCache = new Map<string, Promise<string | undefined>>()
+
+/**
+ * A algunas cartas les falta la imagen en un idioma (pasa mucho en español). La carta tiene el
+ * mismo id en los otros idiomas, así que se usa la imagen de la primera versión que la tenga.
+ */
+export function fallbackImage(id: string, lang: Lang): Promise<string | undefined> {
+  const key = id
+  let hit = fallbackCache.get(key)
+  if (!hit) {
+    hit = (async () => {
+      for (const l of IMAGE_FALLBACK) {
+        if (l === lang) continue
+        try {
+          const res = await fetch(`${BASE}/${l}/cards/${encodeURIComponent(id)}`)
+          if (!res.ok) continue
+          const card = (await res.json()) as { image?: string }
+          if (card.image) return card.image
+        } catch {
+          // probar el siguiente idioma
+        }
+      }
+      return undefined
+    })()
+    fallbackCache.set(key, hit)
+  }
+  return hit
+}
+
 /** Trae los datos completos de una carta para guardarla en el binder. */
 export async function fetchCardRef(brief: CardBrief): Promise<CardRef> {
   const lang = brief.lang
@@ -142,6 +173,7 @@ export async function fetchCardRef(brief: CardBrief): Promise<CardRef> {
   } catch {
     // Sin detalle igual se guarda la carta con nombre e imagen.
   }
+  if (!ref.image) ref.image = await fallbackImage(brief.id, lang)
   return ref
 }
 
