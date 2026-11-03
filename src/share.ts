@@ -1,6 +1,8 @@
 // Arma una imagen de una página del binder (3x3) para compartirla por WhatsApp,
 // Instagram, etc. con el menú de compartir del teléfono.
 
+import { type BinderColor, binderColor } from '@/lib/binderColors'
+
 export interface ShareSlot {
   /** URL de la imagen de la carta, si tiene. */
   src?: string
@@ -49,7 +51,13 @@ function ellipsize(ctx: CanvasRenderingContext2D, text: string, max: number) {
 }
 
 /** Dibuja la página y devuelve un PNG. */
-export async function renderPage(binderName: string, page: number, pageCount: number, slots: ShareSlot[]): Promise<Blob> {
+export async function renderPage(
+  binderName: string,
+  page: number,
+  pageCount: number,
+  slots: ShareSlot[],
+  color: BinderColor = binderColor(),
+): Promise<Blob> {
   const images = await Promise.all(slots.map((s) => (s.src ? loadImage(s.src) : Promise.resolve(null))))
 
   const canvas = document.createElement('canvas')
@@ -86,8 +94,8 @@ export async function renderPage(binderName: string, page: number, pageCount: nu
   const sy = top
 
   const grad = ctx.createLinearGradient(sx, sy, sx + sheetW, sy + sheetH)
-  grad.addColorStop(0, '#3a2f66')
-  grad.addColorStop(1, '#2c2350')
+  grad.addColorStop(0, color.edge)
+  grad.addColorStop(1, color.base)
   ctx.fillStyle = grad
   roundedRect(ctx, sx, sy, sheetW, sheetH, 28)
   ctx.fill()
@@ -113,13 +121,13 @@ export async function renderPage(binderName: string, page: number, pageCount: nu
       const dh = img.height * scale
       ctx.drawImage(img, x + (cw - dw) / 2, y + (ch - dh) / 2, dw, dh)
     } else {
-      ctx.fillStyle = 'rgba(255,255,255,0.06)'
+      ctx.fillStyle = color.pocket
       ctx.fill()
-      ctx.strokeStyle = 'rgba(255,255,255,0.14)'
+      ctx.strokeStyle = color.pocketBorder
       ctx.lineWidth = 2
       ctx.stroke()
       if (slot.name) {
-        ctx.fillStyle = '#f2eefc'
+        ctx.fillStyle = color.plus
         ctx.font = font(26, 600)
         ctx.textAlign = 'center'
         ctx.fillText(ellipsize(ctx, slot.name, cw - 20), x + cw / 2, y + ch / 2)

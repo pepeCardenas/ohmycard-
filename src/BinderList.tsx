@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { BINDER_COLORS, binderColor, binderColorStyle } from '@/lib/binderColors'
 import { type BinderMeta, type CollectionMeta, listBinders, listCollections } from './store'
 
 export type Kind = 'binder' | 'collection'
@@ -12,6 +13,7 @@ interface Props {
   onOpen: (kind: Kind, id: string) => void
   onCreate: (kind: Kind, name: string) => void
   onRename: (kind: Kind, id: string, name: string) => void
+  onColor: (id: string, color: string) => void
   onDelete: (kind: Kind, id: string) => void
   onClose: () => void
   userEmail: string
@@ -21,10 +23,10 @@ interface Props {
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 /** Miniatura de la primera página: una hoja 3x3 como la del binder. */
-function Cover({ preview }: { preview?: (string | null)[] }) {
+function Cover({ preview, color }: { preview?: (string | null)[]; color?: string }) {
   const cells = preview ?? Array(9).fill(null)
   return (
-    <div className="cover" aria-hidden="true">
+    <div className="cover" aria-hidden="true" style={binderColorStyle(color)}>
       {cells.map((src, i) => (
         <span key={i} className="cover-slot">
           {src && <img src={src} alt="" loading="lazy" draggable={false} />}
@@ -55,6 +57,7 @@ export default function BinderList({
   onOpen,
   onCreate,
   onRename,
+  onColor,
   onDelete,
   onClose,
   userEmail,
@@ -87,7 +90,7 @@ export default function BinderList({
     if (creating) newInput.current?.focus()
   }, [creating])
 
-  const info = (b: BinderMeta) => ({ ...b, ...fresh.get(b.id), name: b.name, pageCount: b.pageCount })
+  const info = (b: BinderMeta) => ({ ...b, ...fresh.get(b.id), name: b.name, pageCount: b.pageCount, color: b.color })
   const colInfo = (c: CollectionMeta) => ({ ...c, ...freshCols.get(c.id), name: c.name })
   const totalCards =
     tab === 'binder'
@@ -188,7 +191,7 @@ export default function BinderList({
             return (
               <li key={b.id} className={`binder-card${isCurrent ? ' current' : ''}`}>
                 <button className="binder-open" onClick={() => onOpen('binder', b.id)} aria-label={`Abrir ${b.name}`}>
-                  <Cover preview={meta.preview} />
+                  <Cover preview={meta.preview} color={b.color} />
                   <span className="binder-name">{b.name}</span>
                   <span className="binder-info">
                     {plural(n, 'carta', 'cartas')} · {plural(b.pageCount, 'pág.', 'págs.')}
@@ -303,6 +306,28 @@ export default function BinderList({
             ) : (
               <>
                 <p className="sheet-title">{menuBinder.name}</p>
+                {tab === 'binder' && (
+                  <div className="color-picker">
+                    <span className="sheet-label">Color del binder</span>
+                    <div className="swatches" role="radiogroup" aria-label="Color del binder">
+                      {BINDER_COLORS.map((c) => {
+                        const on = binderColor((menuBinder as BinderMeta).color).id === c.id
+                        return (
+                          <button
+                            key={c.id}
+                            role="radio"
+                            aria-checked={on}
+                            aria-label={c.label}
+                            title={c.label}
+                            className={`swatch${on ? ' on' : ''}`}
+                            style={{ background: `linear-gradient(160deg, ${c.edge}, ${c.base})` }}
+                            onClick={() => onColor(menuBinder.id, c.id)}
+                          />
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
                 <button
                   className="sheet-option"
                   onClick={() => {

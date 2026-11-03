@@ -253,7 +253,7 @@ button {
 
 .plus {
   font-size: 1.6rem;
-  color: var(--muted);
+  color: var(--plus, var(--muted));
   opacity: 0.6;
 }
 
@@ -723,7 +723,7 @@ button {
   padding: 7px;
   margin-bottom: 6px;
   border-radius: 12px;
-  background: linear-gradient(160deg, var(--leather-edge), #241c44);
+  background: linear-gradient(160deg, var(--leather-edge), var(--leather));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
@@ -732,7 +732,7 @@ button {
   border-radius: 4px;
   overflow: hidden;
   background: var(--pocket);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--pocket-border);
 }
 
 .cover-slot img {
@@ -1686,4 +1686,40 @@ button {
 
 .load-more:disabled {
   opacity: 0.6;
+}
+
+/* --- Color del binder (menú ⋯ de Mis binders) --- */
+.color-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0 12px;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+  transition: transform 0.12s ease;
+}
+
+.swatch:active {
+  transform: scale(0.92);
+}
+
+.swatch.on {
+  border-color: var(--gold);
+  box-shadow:
+    0 0 0 3px rgba(245, 197, 66, 0.35),
+    inset 0 0 0 2px var(--bg);
 }

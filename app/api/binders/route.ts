@@ -2,6 +2,7 @@ import { and, asc, count, eq, max } from 'drizzle-orm'
 import { fail, json, withUser } from '@/lib/api'
 import { db } from '@/lib/db'
 import { thumb } from '@/lib/items'
+import { DEFAULT_BINDER_COLOR, isBinderColor } from '@/lib/binderColors'
 import { binder, slot } from '@/lib/schema'
 
 const newId = () => `b${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`
@@ -14,6 +15,7 @@ export async function GET() {
         id: binder.id,
         name: binder.name,
         pageCount: binder.pageCount,
+        color: binder.color,
         cardCount: count(slot.binderId),
       })
       .from(binder)
@@ -22,9 +24,9 @@ export async function GET() {
       .groupBy(binder.id)
       .orderBy(asc(binder.position), asc(binder.createdAt))
     if (rows.length === 0) {
-      const first = { id: newId(), userId: user.id, name: 'Mi binder', pageCount: 2, position: 0 }
+      const first = { id: newId(), userId: user.id, name: 'Mi binder', pageCount: 2, position: 0, color: DEFAULT_BINDER_COLOR }
       await db.insert(binder).values(first)
-      rows = [{ id: first.id, name: first.name, pageCount: first.pageCount, cardCount: 0 }]
+      rows = [{ id: first.id, name: first.name, pageCount: first.pageCount, color: first.color, cardCount: 0 }]
     }
     // Vista previa: la primera página de cada binder (9 miniaturas o null).
     const firstPage = await db
@@ -44,7 +46,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   return withUser(async (user) => {
-    const body = (await req.json().catch(() => ({}))) as { name?: string; pageCount?: number }
+    const body = (await req.json().catch(() => ({}))) as { name?: string; pageCount?: number; color?: string }
     const name = String(body.name ?? '').trim().slice(0, 40)
     if (!name) return fail('Falta el nombre', 400)
     const pageCount = Math.min(Math.max(Number(body.pageCount) || 2, 1), 500)
@@ -52,8 +54,9 @@ export async function POST(req: Request) {
       .select({ last: max(binder.position) })
       .from(binder)
       .where(eq(binder.userId, user.id))
-    const row = { id: newId(), userId: user.id, name, pageCount, position: (last ?? -1) + 1 }
+    const color = isBinderColor(body.color) ? body.color : DEFAULT_BINDER_COLOR
+    const row = { id: newId(), userId: user.id, name, pageCount, color, position: (last ?? -1) + 1 }
     await db.insert(binder).values(row)
-    return json({ id: row.id, name, pageCount, cardCount: 0, preview: Array(9).fill(null) }, 201)
+    return json({ id: row.id, name, pageCount, color, cardCount: 0, preview: Array(9).fill(null) }, 201)
   })
 }

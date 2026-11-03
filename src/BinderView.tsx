@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { binderColor, binderColorStyle } from '@/lib/binderColors'
 import { imageUrl } from './api'
 import {
   SLOTS_PER_PAGE,
@@ -484,7 +485,7 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
         if (owners[s] !== null && owners[s] !== s) return { covered: true }
         return { src: srcFor(key, 'high'), name: isCard(item) ? item.name : undefined, ...spanOf(item) }
       })
-      const blob = await renderPage(binder.name, p, binder.pageCount, slots)
+      const blob = await renderPage(binder.name, p, binder.pageCount, slots, binderColor(binder.color))
       setShareImg({ blob, url: URL.createObjectURL(blob), page: p })
     } catch {
       setError('No se pudo armar la imagen para compartir.')
@@ -551,7 +552,7 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
       <div className="pager" ref={pagerRef} onScroll={onScroll}>
         {Array.from({ length: binder.pageCount }, (_, p) => (
           <section className="page" key={p} aria-label={`Página ${p + 1}`}>
-            <div className="sheet">
+            <div className="sheet" style={binderColorStyle(binder.color)}>
               {(() => {
                 const owners = ownersOf(p, items)
                 return Array.from({ length: SLOTS_PER_PAGE }, (_, s) => {

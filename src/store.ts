@@ -7,6 +7,8 @@ export interface BinderMeta {
   id: string
   name: string
   pageCount: number
+  /** Color de las hojas (id de lib/binderColors). */
+  color?: string
   cardCount?: number
   /** Miniaturas de la primera página (9 casilleros, null si está vacío). */
   preview?: (string | null)[]
@@ -86,7 +88,7 @@ export const createBinder = (name: string, pageCount?: number) =>
 export const saveBinder = (meta: BinderMeta) =>
   call<void>(`/api/binders/${meta.id}`, {
     method: 'PATCH',
-    body: body({ name: meta.name, pageCount: meta.pageCount }),
+    body: body({ name: meta.name, pageCount: meta.pageCount, color: meta.color }),
   })
 
 export const deleteBinder = (id: string) => call<void>(`/api/binders/${id}`, { method: 'DELETE' })
