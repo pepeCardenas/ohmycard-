@@ -17,7 +17,7 @@ import {
   swapSlots,
   uploadPhoto,
 } from './store'
-import { prepareCardImage } from './image'
+import { prepareCardImage, splitCardImage } from './image'
 import CardDetailView from './CardDetailView'
 import SlotActions from './SlotActions'
 import SearchSheet from './SearchSheet'
@@ -160,8 +160,12 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
     if (!start || files.length === 0) return
     // Una sola foto: primero se elige el tamaño
     if (files.length === 1) {
-      setSizing({ file: files[0], target: start, preview: URL.createObjectURL(files[0]) })
-      return
+      // Si sólo entra en un casillero, no hace falta preguntar
+      const fits = SIZES.filter(({ size }) => piecesPlacement(start, size, itemsRef.current))
+      if (fits.length > 1) {
+        setSizing({ file: files[0], target: start, preview: URL.createObjectURL(files[0]) })
+        return
+      }
     }
     setBusy(true)
     setError(null)
@@ -192,29 +196,44 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
     setSizing(null)
   }
 
+  /**
+   * Casilleros donde van los pedazos de una foto de `size` que empieza en `target`:
+   * si entra con esa forma, ese bloque; si no, los libres de la página empezando por `target`.
+   * Null si no hay suficientes casilleros libres.
+   */
+  const piecesPlacement = (target: Pos, size: Size, map: Map<string, SlotItem>) => {
+    const ignore = replaced(target, map)
+    const need = size.cols * size.rows
+    const anchor = findPlacement(target, size, map, ignore)
+    if (anchor !== null) return blockCells(anchor, size.cols, size.rows) ?? null
+    const owners = ownersOf(target.page, map)
+    const free = (c: number) => owners[c] === null || owners[c] === ignore
+    const order = Array.from({ length: SLOTS_PER_PAGE }, (_, k) => (target.slot + k) % SLOTS_PER_PAGE)
+    const cells = order.filter(free).slice(0, need)
+    return cells.length === need ? cells : null
+  }
+
   const uploadSized = async (size: Size) => {
     if (!sizing) return
     const { file, target } = sizing
     const map = itemsRef.current
-    const anchor = findPlacement(target, size, map, replaced(target, map))
-    if (anchor === null) return
+    const cells = piecesPlacement(target, size, map)
+    if (!cells) return
     closeSizing()
     setBusy(true)
     setError(null)
     try {
       const next = new Map(map)
-      const photo = await uploadPhoto(await prepareCardImage(file))
-      const big = size.cols > 1 || size.rows > 1
-      // Si la foto grande empieza en otro casillero, el elegido queda libre
-      if (anchor !== target.slot && next.has(slotKey(id, target.page, target.slot))) {
+      const pieces = await splitCardImage(file, size.cols, size.rows)
+      // Si el casillero elegido tenía una foto grande vieja, se libera entero
+      const old = next.get(slotKey(id, target.page, target.slot))
+      if (old && !cells.includes(target.slot)) {
         await deleteSlot(id, target.page, target.slot)
         next.delete(slotKey(id, target.page, target.slot))
       }
-      await place(
-        { page: target.page, slot: anchor },
-        big ? { ...photo, ...(size.cols > 1 && { cols: 2 }), ...(size.rows > 1 && { rows: 2 }) } : photo,
-        next,
-      )
+      for (const [n, blob] of pieces.entries()) {
+        await place({ page: target.page, slot: cells[n] }, await uploadPhoto(blob), next)
+      }
       setItems(next)
       setViewing(null)
     } catch {
@@ -733,22 +752,20 @@ export default function BinderView({ binder, onChange, onOpenList }: Props) {
             <img className="size-photo" src={sizing.preview} alt="" />
             <div className="size-grid">
               {SIZES.map(({ size, label }) => {
-                const anchor = findPlacement(sizing.target, size, items, replaced(sizing.target, items))
-                const cells = anchor === null ? [] : (blockCells(anchor, size.cols, size.rows) ?? [])
+                const cells = piecesPlacement(sizing.target, size, items)
+                // Sólo se ofrecen las formas que entran en los casilleros libres de la página
+                if (!cells) return null
                 return (
-                  <button
-                    key={label}
-                    className="size-option"
-                    disabled={anchor === null}
-                    onClick={() => uploadSized(size)}
-                  >
+                  <button key={label} className="size-option" onClick={() => uploadSized(size)}>
                     <span className="mini-sheet" aria-hidden="true">
                       {Array.from({ length: SLOTS_PER_PAGE }, (_, c) => (
                         <span key={c} className={cells.includes(c) ? 'on' : ''} />
                       ))}
                     </span>
                     {label}
-                    {anchor === null && <small>No hay lugar</small>}
+                    {findPlacement(sizing.target, size, items, replaced(sizing.target, items)) === null && (
+                      <small>Separadas</small>
+                    )}
                   </button>
                 )
               })}
