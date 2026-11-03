@@ -829,3 +829,31 @@ button {
   z-index: 30;
   margin: 0;
 }
+
+.lang-select {
+  flex: none;
+  max-width: 55%;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--leather);
+  border: 1px solid var(--pocket-border);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.result {
+  position: relative;
+}
+
+.lang-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(27, 21, 48, 0.85);
+  color: var(--gold);
+  font-size: 0.65rem;
+  font-weight: 700;
+}

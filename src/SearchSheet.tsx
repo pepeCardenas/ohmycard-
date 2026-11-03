@@ -1,18 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { type CardBrief, type Lang, fetchCardRef, imageUrl, searchCards } from './api'
+import { type CardBrief, type LangChoice, LANGS, fetchCardRef, imageUrl, isLang, searchCards } from './api'
 import type { CardRef } from './store'
 
 const LANG_KEY = 'ohmycard:lang'
 
-function savedLang(): Lang {
+function savedLang(): LangChoice {
   try {
-    return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'es'
+    const v = localStorage.getItem(LANG_KEY)
+    return v === 'any' || isLang(v) ? v : 'es'
   } catch {
     return 'es'
   }
 }
+
+const langLabel = (code: string) => LANGS.find((l) => l.code === code)?.label ?? code
 
 interface Props {
   /** Texto que indica dónde se va a guardar la próxima carta. */
@@ -23,7 +26,7 @@ interface Props {
 
 export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
   const [query, setQuery] = useState('')
-  const [lang, setLang] = useState<Lang>(savedLang)
+  const [lang, setLang] = useState<LangChoice>(savedLang)
   const [results, setResults] = useState<CardBrief[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -64,10 +67,10 @@ export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
 
   const pick = async (card: CardBrief) => {
     if (adding) return
-    setAdding(card.id)
+    setAdding(`${card.lang}:${card.id}`)
     try {
       // Al agregarla, el binder cierra la búsqueda y vuelve a la página de la carta.
-      await onAdd(await fetchCardRef(card, lang))
+      await onAdd(await fetchCardRef(card))
     } catch {
       setError('No se pudo agregar la carta.')
       setAdding(null)
@@ -92,13 +95,19 @@ export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
       </header>
 
       <div className="search-sub">
-        <div className="langs" role="group" aria-label="Idioma de las cartas">
-          {(['es', 'en'] as const).map((l) => (
-            <button key={l} className={lang === l ? 'on' : ''} onClick={() => setLang(l)}>
-              {l === 'es' ? 'Español' : 'English'}
-            </button>
+        <select
+          className="lang-select"
+          aria-label="Idioma de las cartas"
+          value={lang}
+          onChange={(e) => setLang(e.target.value as LangChoice)}
+        >
+          <option value="any">🌐 Cualquier idioma</option>
+          {LANGS.map((l) => (
+            <option key={l.code} value={l.code}>
+              {l.label}
+            </option>
           ))}
-        </div>
+        </select>
         <span className="target">{targetLabel}</span>
       </div>
 
@@ -110,15 +119,18 @@ export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
         {!error && loading && results === null && <p className="hint">Buscando…</p>}
         {!error && results?.length === 0 && !loading && (
           <p className="hint">
-            No encontré cartas con ese nombre{lang === 'es' ? '. Prueba en English, hay más cartas cargadas.' : '.'}
+            No encontré cartas con ese nombre
+            {lang === 'any'
+              ? '. En japonés, coreano o chino hay que escribir el nombre en ese idioma.'
+              : '. Prueba con "Cualquier idioma".'}
           </p>
         )}
         {results && results.length > 0 && (
           <div className="result-grid">
             {results.map((c) => (
               <button
-                key={c.id}
-                className={`result${adding === c.id ? ' adding' : ''}`}
+                key={`${c.lang}:${c.id}`}
+                className={`result${adding === `${c.lang}:${c.id}` ? ' adding' : ''}`}
                 onClick={() => pick(c)}
                 aria-label={`Agregar ${c.name} ${c.localId}`}
               >
@@ -130,6 +142,11 @@ export default function SearchSheet({ targetLabel, onAdd, onClose }: Props) {
                 <span className="result-name">
                   {c.name} <small>#{c.localId}</small>
                 </span>
+                {lang === 'any' && (
+                  <span className="lang-badge" title={langLabel(c.lang)}>
+                    {c.lang.toUpperCase()}
+                  </span>
+                )}
               </button>
             ))}
           </div>
