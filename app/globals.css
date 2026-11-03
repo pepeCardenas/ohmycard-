@@ -1206,3 +1206,69 @@ button {
   font-size: 0.65rem;
   font-weight: 700;
 }
+
+/* --- Arrastrar cartas --- */
+.slot {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.slot.filled.dragging:not(.lifted) {
+  animation: jiggle 0.32s ease-in-out infinite alternate;
+}
+
+.slot.filled.dragging:nth-child(even):not(.lifted) {
+  animation-delay: -0.16s;
+}
+
+@keyframes jiggle {
+  from {
+    transform: rotate(-1.2deg);
+  }
+  to {
+    transform: rotate(1.2deg);
+  }
+}
+
+.slot.lifted {
+  opacity: 0.25;
+}
+
+.slot.drop-over {
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 0 3px rgba(245, 197, 66, 0.35);
+  animation: none;
+  transform: scale(0.94);
+}
+
+.slot.drop-over .plus {
+  color: var(--gold);
+  opacity: 1;
+}
+
+.drag-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 40;
+  pointer-events: none;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--pocket);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+  will-change: transform;
+}
+
+.drag-ghost img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot.filled.dragging:not(.lifted) {
+    animation: none;
+  }
+}
