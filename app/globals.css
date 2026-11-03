@@ -568,83 +568,277 @@ button {
 }
 
 /* --- Lista de binders --- */
-.binder-list {
-  list-style: none;
+.list-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.list-title h1 {
   margin: 0;
-  padding: 0 16px;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.list-title p {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.binder-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  padding: 4px 16px 16px;
 }
 
-.binder-list li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 14px;
-  border-radius: 14px;
+.binder-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.binder-card {
+  position: relative;
+  border-radius: 18px;
   background: var(--leather);
-  border: 1px solid transparent;
+  border: 1.5px solid transparent;
+  transition: transform 0.12s ease, border-color 0.12s ease;
 }
 
-.binder-list li.current {
+.binder-card:active {
+  transform: scale(0.98);
+}
+
+.binder-card.current {
   border-color: var(--gold);
+  box-shadow: 0 0 0 4px rgba(245, 197, 66, 0.12);
 }
 
 .binder-open {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
+  align-items: stretch;
+  gap: 4px;
+  padding: 10px 10px 12px;
   text-align: left;
+}
+
+.cover {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 7px;
+  margin-bottom: 6px;
+  border-radius: 12px;
+  background: linear-gradient(160deg, var(--leather-edge), #241c44);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.cover-slot {
+  aspect-ratio: 63 / 88;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--pocket);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.cover-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .binder-name {
   font-weight: 700;
-  font-size: 1.05rem;
-  max-width: 100%;
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 34px;
+}
+
+.binder-info {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.badge {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #1b1530;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.binder-more {
+  position: absolute;
+  right: 2px;
+  bottom: 4px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--text);
+}
+
+.binder-more svg {
+  padding: 5px;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--leather-edge);
+}
+
+.binder-card.new {
+  background: transparent;
+  border: 1.5px dashed var(--pocket-border);
+  min-height: 180px;
+  display: flex;
+}
+
+.new-open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.new-plus {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--leather);
+  color: var(--gold);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.new-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+}
+
+.new-form .primary {
+  padding: 10px;
+  border-radius: 10px;
+}
+
+.new-form .primary:disabled {
+  opacity: 0.4;
+}
+
+/* Hoja de acciones desde abajo */
+.viewer.action-backdrop {
+  justify-content: flex-end;
+  padding: 0;
+  z-index: 20;
+}
+
+.action-sheet {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 16px calc(16px + env(safe-area-inset-bottom));
+  border-radius: 22px 22px 0 0;
+  background: var(--leather);
+  animation: sheet-up 0.18s ease-out;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+.sheet-title {
+  margin: 0 0 6px;
+  font-weight: 800;
+  font-size: 1.1rem;
+  text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.binder-info {
-  font-size: 0.85rem;
+.sheet-text {
+  margin: 0 0 8px;
   color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
 }
 
-.binder-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  flex: none;
+.sheet-option,
+.sheet-cancel,
+.sheet-danger {
+  min-height: 50px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
-.binder-actions button {
-  font-size: 0.85rem;
-  color: var(--muted);
-  padding: 2px 0;
+.sheet-option {
+  background: var(--leather-edge);
 }
 
-.binder-actions .danger-text {
+.sheet-option.danger-text {
   color: var(--danger);
 }
 
-.new-binder {
-  display: flex;
-  gap: 10px;
-  padding: 16px;
+.sheet-danger {
+  background: var(--danger);
+  color: #1b1530;
+  font-weight: 800;
 }
 
-.new-binder .primary {
-  padding: 0 18px;
-  border-radius: 10px;
+.sheet-cancel {
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.sheet-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sheet-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.sheet-form .primary {
+  min-height: 50px;
+  border-radius: 12px;
+  font-size: 1rem;
+}
+
+.danger-text {
+  color: var(--danger);
 }
 
 /* --- Detalle de carta oficial --- */
@@ -831,18 +1025,39 @@ button {
 
 .account {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  padding: 0 16px 16px;
+  gap: 10px;
+  margin: 0 16px 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
   font-size: 0.85rem;
   color: var(--muted);
 }
 
-.account span {
+.avatar {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--leather-edge);
+  color: var(--gold);
+  font-weight: 800;
+}
+
+.account-email {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.account .link {
+  flex: none;
+  min-height: 44px;
 }
 
 .banner.floating {

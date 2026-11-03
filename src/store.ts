@@ -8,6 +8,8 @@ export interface BinderMeta {
   name: string
   pageCount: number
   cardCount?: number
+  /** Miniaturas de la primera página (9 casilleros, null si está vacío). */
+  preview?: (string | null)[]
 }
 
 /** Carta oficial guardada por referencia (la imagen viene de TCGdex). */
