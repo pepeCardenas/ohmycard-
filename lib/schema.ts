@@ -76,6 +76,8 @@ export const userPref = sqliteTable('user_pref', {
     .primaryKey()
     .references(() => user.id, { onDelete: 'cascade' }),
   skin: text('skin').notNull().default('clasico'),
+  /** 'dark' o 'light'. */
+  mode: text('mode').notNull().default('dark'),
 })
 
 /** Contenido de un casillero: carta oficial o foto, guardado como JSON. */

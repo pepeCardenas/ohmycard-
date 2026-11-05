@@ -19,7 +19,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" data-skin="clasico" suppressHydrationWarning>
+    <html lang="es" data-skin="clasico" data-mode="dark" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: EARLY_SKIN_SCRIPT }} />
       </head>
