@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { authClient } from '@/lib/auth-client'
+import { DEFAULT_SKIN, SKIN_KEY, applySkin, isSkin } from '@/lib/skins'
 import BinderList, { type Kind } from './BinderList'
 import BinderView from './BinderView'
 import CollectionView from './CollectionView'
@@ -16,6 +17,8 @@ import {
   deleteCollection,
   listBinders,
   listCollections,
+  loadPrefs,
+  saveSkin,
   renameCollection,
   putSlot,
   saveBinder,
@@ -51,6 +54,7 @@ export default function Home({ userEmail }: { userEmail: string }) {
   const [error, setError] = useState<string | null>(null)
   const [legacy, setLegacy] = useState<LegacyBinder[]>([])
   const [importing, setImporting] = useState<string | null>(null)
+  const [skin, setSkin] = useState(DEFAULT_SKIN)
 
   const load = async (prefer?: string) => {
     const [list, cols] = await Promise.all([listBinders(), listCollections().catch(() => [] as CollectionMeta[])])
@@ -70,7 +74,28 @@ export default function Home({ userEmail }: { userEmail: string }) {
   useEffect(() => {
     load().catch(() => setError('No se pudieron cargar tus binders. Revisa tu conexión.'))
     if (!alreadyImported()) readLegacy().then(setLegacy).catch(() => {})
+    // Skin: primero el guardado en el teléfono (ya aplicado antes de pintar), después el de la cuenta
+    try {
+      const local = localStorage.getItem(SKIN_KEY)
+      if (isSkin(local)) setSkin(local)
+    } catch {
+      /* sin almacenamiento */
+    }
+    loadPrefs()
+      .then((p) => {
+        if (isSkin(p.skin)) {
+          setSkin(p.skin)
+          applySkin(p.skin)
+        }
+      })
+      .catch(() => {})
   }, [])
+
+  const chooseSkin = (id: string) => {
+    setSkin(id)
+    applySkin(id)
+    saveSkin(id).catch(() => setError('No se pudo guardar el skin en tu cuenta.'))
+  }
 
   const open = (kind: Kind, id: string) => {
     setCurrent({ kind, id })
@@ -179,6 +204,8 @@ export default function Home({ userEmail }: { userEmail: string }) {
           current={current}
           userEmail={userEmail}
           onSignOut={signOut}
+          skin={skin}
+          onSkin={chooseSkin}
           onOpen={open}
           onClose={() => setShowList(false)}
           onCreate={async (kind, name) => {

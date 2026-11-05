@@ -70,6 +70,14 @@ export const binder = sqliteTable('binder', {
     .default(sql`(unixepoch())`),
 })
 
+/** Preferencias de cada usuario (por ahora, el skin de la app). */
+export const userPref = sqliteTable('user_pref', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  skin: text('skin').notNull().default('clasico'),
+})
+
 /** Contenido de un casillero: carta oficial o foto, guardado como JSON. */
 export const slot = sqliteTable(
   'slot',

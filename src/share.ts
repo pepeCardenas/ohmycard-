@@ -67,16 +67,20 @@ export async function renderPage(
   const font = (size: number, weight = 700) =>
     `${weight} ${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`
 
+  // Colores del skin elegido
+  const css = typeof document !== 'undefined' ? getComputedStyle(document.documentElement) : null
+  const themed = (name: string, fallback: string) => css?.getPropertyValue(name).trim() || fallback
+
   // Fondo
-  ctx.fillStyle = '#1b1530'
+  ctx.fillStyle = themed('--bg', '#1b1530')
   ctx.fillRect(0, 0, W, H)
 
   // Título
-  ctx.fillStyle = '#f2eefc'
+  ctx.fillStyle = themed('--text', '#f2eefc')
   ctx.font = font(56)
   ctx.textBaseline = 'alphabetic'
   ctx.fillText(ellipsize(ctx, binderName, W - PAD * 2), PAD, PAD + 52)
-  ctx.fillStyle = '#a99fcc'
+  ctx.fillStyle = themed('--muted', '#a99fcc')
   ctx.font = font(32, 500)
   ctx.fillText(`Página ${page + 1} de ${pageCount}`, PAD, PAD + 100)
 
@@ -138,7 +142,7 @@ export async function renderPage(
   }
 
   // Firma
-  ctx.fillStyle = '#f5c542'
+  ctx.fillStyle = themed('--gold', '#f5c542')
   ctx.font = font(34, 800)
   ctx.textAlign = 'center'
   ctx.fillText('OhMyCard!!', W / 2, H - 44)

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { EARLY_SKIN_SCRIPT } from '@/lib/skins'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -18,7 +19,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
+    <html lang="es" data-skin="clasico" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: EARLY_SKIN_SCRIPT }} />
+      </head>
       <body>
         <div id="root">{children}</div>
         <script
