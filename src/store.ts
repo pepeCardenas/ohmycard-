@@ -149,3 +149,9 @@ export const addToCollection = (id: string, items: SlotItem[]) =>
 
 export const removeFromCollection = (id: string, itemId: string) =>
   call<void>(`/api/collections/${id}/items?item=${encodeURIComponent(itemId)}`, { method: 'DELETE' })
+
+// --- Preferencias ------------------------------------------------------------
+
+export const loadPrefs = () => call<{ skin: string }>('/api/prefs')
+
+export const saveSkin = (skin: string) => call<void>('/api/prefs', { method: 'PATCH', body: body({ skin }) })

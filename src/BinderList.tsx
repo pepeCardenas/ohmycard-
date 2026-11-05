@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { BINDER_COLORS, binderColor, binderColorStyle } from '@/lib/binderColors'
+import { SKINS } from '@/lib/skins'
 import { type BinderMeta, type CollectionMeta, listBinders, listCollections } from './store'
 
 export type Kind = 'binder' | 'collection'
@@ -18,6 +19,8 @@ interface Props {
   onClose: () => void
   userEmail: string
   onSignOut: () => void
+  skin: string
+  onSkin: (id: string) => void
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
@@ -62,6 +65,8 @@ export default function BinderList({
   onClose,
   userEmail,
   onSignOut,
+  skin,
+  onSkin,
 }: Props) {
   // Conteos y miniaturas frescos (pueden haber cambiado desde que se abrió la app)
   const [fresh, setFresh] = useState<Map<string, BinderMeta>>(new Map())
@@ -72,6 +77,7 @@ export default function BinderList({
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [choosingSkin, setChoosingSkin] = useState(false)
   const newInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -137,9 +143,25 @@ export default function BinderList({
             · {plural(totalCards, 'carta', 'cartas')}
           </p>
         </div>
-        <button className="done" onClick={onClose}>
-          Cerrar
-        </button>
+        <div className="list-actions">
+          <button className="skin-btn" onClick={() => setChoosingSkin(true)} aria-label="Cambiar skin">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path
+                d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.8-1.7H17a4 4 0 0 0 4-4C21 6.5 17 3 12 3Z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+              <circle cx="7.5" cy="11" r="1.4" fill="currentColor" />
+              <circle cx="10.5" cy="7.5" r="1.4" fill="currentColor" />
+              <circle cx="15" cy="7.8" r="1.4" fill="currentColor" />
+            </svg>
+            Skin
+          </button>
+          <button className="done" onClick={onClose}>
+            Cerrar
+          </button>
+        </div>
       </header>
 
       <div className="tabs" role="tablist">
@@ -258,6 +280,42 @@ export default function BinderList({
         </button>
       </footer>
 
+      {choosingSkin && (
+        <div className="viewer action-backdrop" onClick={() => setChoosingSkin(false)}>
+          <div className="action-sheet" role="dialog" aria-label="Elegir skin" onClick={(e) => e.stopPropagation()}>
+            <p className="sheet-title">Skin de la app</p>
+            <p className="sheet-text">Cambia los colores y la decoración. Se guarda en tu cuenta.</p>
+            <div className="skin-grid" role="radiogroup" aria-label="Skin">
+              {SKINS.map((s) => (
+                <button
+                  key={s.id}
+                  role="radio"
+                  aria-checked={skin === s.id}
+                  className={`skin-option${skin === s.id ? ' on' : ''}`}
+                  onClick={() => onSkin(s.id)}
+                >
+                  <span className="skin-preview" data-skin={s.id} aria-hidden="true">
+                    <span className="mini-sheet">
+                      {Array.from({ length: 9 }, (_, i) => (
+                        <span key={i} />
+                      ))}
+                    </span>
+                    <span className="mini-accent" />
+                  </span>
+                  <span className="skin-name">
+                    {s.label}
+                    <small>{s.hint}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button className="sheet-cancel" onClick={() => setChoosingSkin(false)}>
+              Listo
+            </button>
+          </div>
+        </div>
+      )}
+
       {menuBinder && (
         <div className="viewer action-backdrop" onClick={closeMenu}>
           <div className="action-sheet" role="dialog" aria-label={`Opciones de ${menuBinder.name}`} onClick={(e) => e.stopPropagation()}>
@@ -320,7 +378,12 @@ export default function BinderList({
                             aria-label={c.label}
                             title={c.label}
                             className={`swatch${on ? ' on' : ''}`}
-                            style={{ background: `linear-gradient(160deg, ${c.edge}, ${c.base})` }}
+                            style={{
+                              background:
+                                c.id === 'morado'
+                                  ? 'linear-gradient(160deg, var(--sheet-edge), var(--sheet))'
+                                  : `linear-gradient(160deg, ${c.edge}, ${c.base})`,
+                            }}
                             onClick={() => onColor(menuBinder.id, c.id)}
                           />
                         )
