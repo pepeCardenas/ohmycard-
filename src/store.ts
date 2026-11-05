@@ -152,6 +152,7 @@ export const removeFromCollection = (id: string, itemId: string) =>
 
 // --- Preferencias ------------------------------------------------------------
 
-export const loadPrefs = () => call<{ skin: string }>('/api/prefs')
+export const loadPrefs = () => call<{ skin: string; mode: string }>('/api/prefs')
 
-export const saveSkin = (skin: string) => call<void>('/api/prefs', { method: 'PATCH', body: body({ skin }) })
+export const savePrefs = (prefs: { skin?: string; mode?: string }) =>
+  call<void>('/api/prefs', { method: 'PATCH', body: body(prefs) })

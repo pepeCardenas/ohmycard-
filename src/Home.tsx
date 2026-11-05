@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { authClient } from '@/lib/auth-client'
-import { DEFAULT_SKIN, SKIN_KEY, applySkin, isSkin } from '@/lib/skins'
+import { DEFAULT_MODE, DEFAULT_SKIN, MODE_KEY, type Mode, SKIN_KEY, applySkin, isMode, isSkin } from '@/lib/skins'
 import BinderList, { type Kind } from './BinderList'
 import BinderView from './BinderView'
 import CollectionView from './CollectionView'
@@ -18,7 +18,7 @@ import {
   listBinders,
   listCollections,
   loadPrefs,
-  saveSkin,
+  savePrefs,
   renameCollection,
   putSlot,
   saveBinder,
@@ -55,6 +55,7 @@ export default function Home({ userEmail }: { userEmail: string }) {
   const [legacy, setLegacy] = useState<LegacyBinder[]>([])
   const [importing, setImporting] = useState<string | null>(null)
   const [skin, setSkin] = useState(DEFAULT_SKIN)
+  const [mode, setMode] = useState<Mode>(DEFAULT_MODE)
 
   const load = async (prefer?: string) => {
     const [list, cols] = await Promise.all([listBinders(), listCollections().catch(() => [] as CollectionMeta[])])
@@ -78,23 +79,32 @@ export default function Home({ userEmail }: { userEmail: string }) {
     try {
       const local = localStorage.getItem(SKIN_KEY)
       if (isSkin(local)) setSkin(local)
+      const localMode = localStorage.getItem(MODE_KEY)
+      if (isMode(localMode)) setMode(localMode)
     } catch {
       /* sin almacenamiento */
     }
     loadPrefs()
       .then((p) => {
-        if (isSkin(p.skin)) {
-          setSkin(p.skin)
-          applySkin(p.skin)
-        }
+        const s = isSkin(p.skin) ? p.skin : DEFAULT_SKIN
+        const m = isMode(p.mode) ? p.mode : DEFAULT_MODE
+        setSkin(s)
+        setMode(m)
+        applySkin(s, m)
       })
       .catch(() => {})
   }, [])
 
   const chooseSkin = (id: string) => {
     setSkin(id)
-    applySkin(id)
-    saveSkin(id).catch(() => setError('No se pudo guardar el skin en tu cuenta.'))
+    applySkin(id, mode)
+    savePrefs({ skin: id }).catch(() => setError('No se pudo guardar el skin en tu cuenta.'))
+  }
+
+  const chooseMode = (m: Mode) => {
+    setMode(m)
+    applySkin(skin, m)
+    savePrefs({ mode: m }).catch(() => setError('No se pudo guardar el modo en tu cuenta.'))
   }
 
   const open = (kind: Kind, id: string) => {
@@ -206,6 +216,8 @@ export default function Home({ userEmail }: { userEmail: string }) {
           onSignOut={signOut}
           skin={skin}
           onSkin={chooseSkin}
+          mode={mode}
+          onMode={chooseMode}
           onOpen={open}
           onClose={() => setShowList(false)}
           onCreate={async (kind, name) => {

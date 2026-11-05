@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { BINDER_COLORS, binderColor, binderColorStyle } from '@/lib/binderColors'
-import { SKINS } from '@/lib/skins'
+import { type Mode, SKINS } from '@/lib/skins'
 import { type BinderMeta, type CollectionMeta, listBinders, listCollections } from './store'
 
 export type Kind = 'binder' | 'collection'
@@ -21,6 +21,8 @@ interface Props {
   onSignOut: () => void
   skin: string
   onSkin: (id: string) => void
+  mode: Mode
+  onMode: (mode: Mode) => void
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
@@ -67,6 +69,8 @@ export default function BinderList({
   onSignOut,
   skin,
   onSkin,
+  mode,
+  onMode,
 }: Props) {
   // Conteos y miniaturas frescos (pueden haber cambiado desde que se abrió la app)
   const [fresh, setFresh] = useState<Map<string, BinderMeta>>(new Map())
@@ -144,7 +148,7 @@ export default function BinderList({
           </p>
         </div>
         <div className="list-actions">
-          <button className="skin-btn" onClick={() => setChoosingSkin(true)} aria-label="Cambiar skin">
+          <button className="skin-btn" onClick={() => setChoosingSkin(true)} aria-label="Cambiar skin y fondo">
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
               <path
                 d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.8-1.7H17a4 4 0 0 0 4-4C21 6.5 17 3 12 3Z"
@@ -285,6 +289,18 @@ export default function BinderList({
           <div className="action-sheet" role="dialog" aria-label="Elegir skin" onClick={(e) => e.stopPropagation()}>
             <p className="sheet-title">Skin de la app</p>
             <p className="sheet-text">Cambia los colores y la decoración. Se guarda en tu cuenta.</p>
+            <div className="mode-switch" role="radiogroup" aria-label="Fondo">
+              {(
+                [
+                  ['dark', 'Oscuro'],
+                  ['light', 'Claro'],
+                ] as const
+              ).map(([m, label]) => (
+                <button key={m} role="radio" aria-checked={mode === m} className={mode === m ? 'on' : ''} onClick={() => onMode(m)}>
+                  {label}
+                </button>
+              ))}
+            </div>
             <div className="skin-grid" role="radiogroup" aria-label="Skin">
               {SKINS.map((s) => (
                 <button
@@ -294,7 +310,7 @@ export default function BinderList({
                   className={`skin-option${skin === s.id ? ' on' : ''}`}
                   onClick={() => onSkin(s.id)}
                 >
-                  <span className="skin-preview" data-skin={s.id} aria-hidden="true">
+                  <span className="skin-preview" data-skin={s.id} data-mode={mode} aria-hidden="true">
                     <span className="mini-sheet">
                       {Array.from({ length: 9 }, (_, i) => (
                         <span key={i} />

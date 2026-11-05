@@ -1,0 +1,1 @@
+ALTER TABLE `user_pref` ADD `mode` text DEFAULT 'dark' NOT NULL;
